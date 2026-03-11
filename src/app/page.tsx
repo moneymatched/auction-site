@@ -1,101 +1,138 @@
-import Image from "next/image";
+import Link from "next/link";
+import { createSupabaseServiceClient } from "@/lib/supabase";
+import AuctionCard from "@/components/AuctionCard";
+import { Auction } from "@/types";
+import { ArrowRight, MapPin, Gavel, Trophy } from "lucide-react";
 
-export default function Home() {
+async function getLiveAuctions(): Promise<Auction[]> {
+  const supabase = createSupabaseServiceClient();
+  const { data } = await supabase
+    .from("auctions")
+    .select(`*, property:properties(*, images:property_images(*))`)
+    .in("status", ["live", "upcoming"])
+    .order("status", { ascending: true })
+    .order("end_time", { ascending: true })
+    .limit(3);
+  return (data as Auction[]) ?? [];
+}
+
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const auctions = await getLiveAuctions();
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
+    <main>
+      {/* Hero — extends behind nav via negative margin */}
+      <section className="relative bg-stone-900 text-white overflow-hidden min-h-[32rem] -mt-16 pt-16">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: "url(/hero-bg.png)" }}
         />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+        <div className="absolute inset-0 bg-gradient-to-br from-stone-900/80 via-stone-800/70 to-stone-700/60" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32 lg:py-44">
+          <div className="max-w-2xl">
+            <p className="text-stone-400 text-sm font-medium uppercase tracking-widest mb-4">
+              Live Land Auctions
+            </p>
+            <h1 className="text-5xl lg:text-7xl font-light leading-tight mb-6">
+              Bid on Land.
+            </h1>
+            <p className="text-stone-300 text-lg mb-10 leading-relaxed max-w-lg">
+              Transparent, real-time online auctions. Browse properties, place bids, and secure land — all from your device.
+            </p>
+            <div className="flex items-center gap-4 flex-wrap">
+              <Link href="/auctions" className="inline-flex items-center gap-2 px-7 py-3 bg-transparent border border-white text-white text-base font-medium rounded-sm hover:bg-white/10 transition-colors">
+                Browse Auctions
+                <ArrowRight size={18} />
+              </Link>
+              <Link href="/auctions?view=map" className="inline-flex items-center gap-2 px-7 py-3 bg-transparent border border-white text-white text-base font-medium rounded-sm hover:bg-white/10 transition-colors">
+                <MapPin size={18} />
+                View on Map
+              </Link>
+            </div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+      </section>
+
+      {/* How it works */}
+      <section className="bg-white border-b border-stone-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+          <h2 className="text-2xl font-semibold text-stone-900 mb-12 text-center">How It Works</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            {[
+              {
+                icon: <MapPin size={28} className="text-stone-700" />,
+                step: "01",
+                title: "Browse Properties",
+                desc: "Explore listings in grid or map view. Each auction includes photos, acreage, location, and zoning details.",
+              },
+              {
+                icon: <Gavel size={28} className="text-stone-700" />,
+                step: "02",
+                title: "Place Your Bid",
+                desc: "Enter your bid amount and contact info. No account needed. Bids are validated in real time.",
+              },
+              {
+                icon: <Trophy size={28} className="text-stone-700" />,
+                step: "03",
+                title: "Win & Close",
+                desc: "The highest bidder when the timer ends wins. We'll contact you directly to complete the sale offline.",
+              },
+            ].map((item) => (
+              <div key={item.step} className="flex flex-col items-start gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-mono text-stone-300">{item.step}</span>
+                  {item.icon}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-stone-900 mb-1">{item.title}</h3>
+                  <p className="text-stone-500 text-sm leading-relaxed">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Live auctions preview */}
+      {auctions.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-semibold text-stone-900">
+              {auctions.some((a) => a.status === "live") ? "Live Now" : "Upcoming Auctions"}
+            </h2>
+            <Link href="/auctions" className="inline-flex items-center gap-1 text-sm text-stone-500 hover:text-stone-900 transition-colors">
+              View all <ArrowRight size={14} />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {auctions.map((auction) => (
+              <AuctionCard key={auction.id} auction={auction} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {auctions.length === 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+          <div className="max-w-sm mx-auto">
+            <Gavel size={40} className="mx-auto text-stone-300 mb-4" />
+            <h2 className="text-xl font-semibold text-stone-700 mb-2">No Active Auctions</h2>
+            <p className="text-stone-400 text-sm">Check back soon — new listings coming.</p>
+          </div>
+        </section>
+      )}
+
+      {/* Footer */}
+      <footer className="border-t border-stone-200 bg-white mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <span className="text-sm font-semibold text-stone-900">Going Going Gobbi</span>
+          <p className="text-xs text-stone-400">
+            Payments handled offline. All sales subject to seller approval.
+          </p>
+        </div>
       </footer>
-    </div>
+    </main>
   );
 }
