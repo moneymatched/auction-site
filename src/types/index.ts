@@ -41,6 +41,15 @@ export interface Auction {
   property?: Property;
 }
 
+export interface Bidder {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  created_at: string;
+}
+
 export interface Bid {
   id: string;
   auction_id: string;

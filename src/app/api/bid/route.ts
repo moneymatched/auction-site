@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
   );
   const shouldExtend = secondsRemaining > 0 && secondsRemaining <= auction.auto_extend_threshold;
   const newEndTime = shouldExtend
-    ? new Date(Date.now() + auction.auto_extend_seconds * 1000).toISOString()
+    ? new Date(new Date(auction.end_time).getTime() + auction.auto_extend_seconds * 1000).toISOString()
     : auction.end_time;
 
   // Insert the bid

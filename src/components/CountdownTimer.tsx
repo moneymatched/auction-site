@@ -20,7 +20,7 @@ export default function CountdownTimer({
   showExtendedBanner = false,
 }: CountdownTimerProps) {
   const [timeData, setTimeData] = useState(formatTimeRemaining(endTime));
-  const [extended, setExtended] = useState(false);
+  const [extendedMinutes, setExtendedMinutes] = useState<number | null>(null);
   const [prevEndTime, setPrevEndTime] = useState(endTime);
 
   // Detect auto-extension
@@ -29,8 +29,9 @@ export default function CountdownTimer({
       const prevEnd = new Date(prevEndTime).getTime();
       const newEnd = new Date(endTime).getTime();
       if (newEnd > prevEnd && showExtendedBanner) {
-        setExtended(true);
-        setTimeout(() => setExtended(false), 5000);
+        const addedMinutes = Math.round((newEnd - prevEnd) / 60000);
+        setExtendedMinutes(addedMinutes);
+        setTimeout(() => setExtendedMinutes(null), 5000);
       }
       setPrevEndTime(endTime);
     }
@@ -89,10 +90,10 @@ export default function CountdownTimer({
 
   return (
     <div className="flex flex-col gap-1">
-      {extended && showExtendedBanner && (
+      {extendedMinutes !== null && showExtendedBanner && (
         <div className="animate-fade-in flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-sm text-amber-700 text-xs font-medium">
           <span>⏱</span>
-          <span>Time Extended! Auction extended by 5 minutes.</span>
+          <span>Time Extended! Auction extended by {extendedMinutes} minute{extendedMinutes !== 1 ? "s" : ""}.</span>
         </div>
       )}
       <div className="flex items-center gap-2">

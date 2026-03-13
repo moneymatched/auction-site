@@ -30,13 +30,9 @@ export default async function AdminDashboardPage() {
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-semibold text-stone-900">Dashboard</h1>
         <div className="flex gap-3">
-          <Link href="/admin/properties/new" className="btn-secondary text-sm">
-            <Plus size={16} />
-            Add Property
-          </Link>
           <Link href="/admin/auctions/new" className="btn-primary text-sm">
             <Plus size={16} />
-            New Auction
+            List Property for Auction
           </Link>
         </div>
       </div>

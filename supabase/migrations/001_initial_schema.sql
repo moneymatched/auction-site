@@ -38,7 +38,7 @@ create table auctions (
   bid_count int not null default 0,
   min_bid_increment numeric not null default 100,
   auto_extend_seconds int not null default 300,
-  auto_extend_threshold int not null default 300,
+  auto_extend_threshold int not null default 120,
   notes text,
   created_at timestamptz not null default now()
 );
