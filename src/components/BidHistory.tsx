@@ -8,15 +8,19 @@ interface BidHistoryProps {
   bids: Bid[];
 }
 
-function maskName(name: string): string {
-  const parts = name.trim().split(" ");
-  return parts
-    .map((part, i) =>
-      i === 0
-        ? part.charAt(0).toUpperCase() + "*".repeat(Math.max(part.length - 1, 1))
-        : part.charAt(0).toUpperCase() + "."
-    )
-    .join(" ");
+function maskBidder(name: string | null, email: string): string {
+  if (name && name.trim()) {
+    const parts = name.trim().split(" ");
+    return parts
+      .map((part, i) =>
+        i === 0
+          ? part.charAt(0).toUpperCase() + "*".repeat(Math.max(part.length - 1, 1))
+          : part.charAt(0).toUpperCase() + "."
+      )
+      .join(" ");
+  }
+  const prefix = email.split("@")[0] ?? "?";
+  return prefix.charAt(0).toUpperCase() + "*".repeat(Math.max(prefix.length - 1, 1));
 }
 
 function timeAgo(dateStr: string): string {
@@ -52,11 +56,11 @@ export default function BidHistory({ bids }: BidHistoryProps) {
                   : "bg-stone-100 text-stone-500"
               }`}
             >
-              {maskName(bid.bidder_name).charAt(0)}
+              {maskBidder(bid.bidder_name, bid.bidder_email).charAt(0)}
             </div>
             <div>
               <p className={`text-sm font-medium ${idx === 0 ? "text-emerald-700" : "text-stone-700"}`}>
-                {maskName(bid.bidder_name)}
+                {maskBidder(bid.bidder_name, bid.bidder_email)}
                 {idx === 0 && <span className="ml-2 text-xs font-normal text-emerald-600">Winning</span>}
               </p>
               <div className="flex items-center gap-1 text-xs text-stone-400">

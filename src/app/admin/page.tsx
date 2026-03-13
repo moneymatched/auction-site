@@ -23,7 +23,7 @@ export default async function AdminDashboardPage() {
   const { propertyCount, auctionCount, liveAuctions, recentBids } = await getDashboardStats();
 
   const live = (liveAuctions ?? []) as unknown as Array<{ id: string; current_bid: number; bid_count: number; property: { title: string } }>;
-  const bids = (recentBids ?? []) as Array<{ id: string; bidder_name: string; amount: number; placed_at: string; auction_id: string }>;
+  const bids = (recentBids ?? []) as Array<{ id: string; bidder_name: string | null; bidder_email: string; amount: number; placed_at: string; auction_id: string }>;
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -99,7 +99,7 @@ export default async function AdminDashboardPage() {
               bids.map((bid) => (
                 <div key={bid.id} className="flex items-center justify-between p-4">
                   <div>
-                    <p className="text-sm font-medium text-stone-800">{bid.bidder_name}</p>
+                    <p className="text-sm font-medium text-stone-800">{bid.bidder_name || bid.bidder_email}</p>
                     <p className="text-xs text-stone-400">
                       {new Date(bid.placed_at).toLocaleString()}
                     </p>

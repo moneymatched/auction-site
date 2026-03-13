@@ -14,9 +14,7 @@ interface BidFormProps {
 export default function BidForm({ auction, onSuccess, onClose }: BidFormProps) {
   const minBid = getMinimumNextBid(auction);
   const [amount, setAmount] = useState(minBid.toString());
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -38,9 +36,7 @@ export default function BidForm({ auction, onSuccess, onClose }: BidFormProps) {
         body: JSON.stringify({
           auction_id: auction.id,
           amount: bidAmount,
-          bidder_name: name.trim(),
           bidder_email: email.trim().toLowerCase(),
-          bidder_phone: phone.trim(),
         }),
       });
 
@@ -96,18 +92,7 @@ export default function BidForm({ auction, onSuccess, onClose }: BidFormProps) {
             </p>
           </div>
 
-          {/* Contact info */}
-          <div>
-            <label className="label">Full Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="input-field"
-              placeholder="Jane Smith"
-              required
-            />
-          </div>
+          {/* Email */}
           <div>
             <label className="label">Email Address</label>
             <input
@@ -116,17 +101,6 @@ export default function BidForm({ auction, onSuccess, onClose }: BidFormProps) {
               onChange={(e) => setEmail(e.target.value)}
               className="input-field"
               placeholder="jane@example.com"
-              required
-            />
-          </div>
-          <div>
-            <label className="label">Phone Number</label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="input-field"
-              placeholder="(555) 555-5555"
               required
             />
           </div>

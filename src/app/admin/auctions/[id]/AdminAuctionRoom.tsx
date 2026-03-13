@@ -184,18 +184,22 @@ export default function AdminAuctionRoom({ auction: initialAuction, bids: initia
             </h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div>
-              <p className="text-xs text-stone-400">Name</p>
-              <p className="text-sm font-medium text-stone-900">{winner.bidder_name}</p>
-            </div>
+            {winner.bidder_name && (
+              <div>
+                <p className="text-xs text-stone-400">Name</p>
+                <p className="text-sm font-medium text-stone-900">{winner.bidder_name}</p>
+              </div>
+            )}
             <div>
               <p className="text-xs text-stone-400">Email</p>
               <p className="text-sm font-medium text-stone-900">{winner.bidder_email}</p>
             </div>
-            <div>
-              <p className="text-xs text-stone-400">Phone</p>
-              <p className="text-sm font-medium text-stone-900">{winner.bidder_phone}</p>
-            </div>
+            {winner.bidder_phone && (
+              <div>
+                <p className="text-xs text-stone-400">Phone</p>
+                <p className="text-sm font-medium text-stone-900">{winner.bidder_phone}</p>
+              </div>
+            )}
             <div>
               <p className="text-xs text-stone-400">Winning Bid</p>
               <p className="text-sm font-semibold text-emerald-700">{formatCurrency(winner.amount)}</p>
@@ -227,11 +231,11 @@ export default function AdminAuctionRoom({ auction: initialAuction, bids: initia
               >
                 <div className="col-span-2">
                   <p className={`font-medium ${idx === 0 ? "text-emerald-700" : "text-stone-800"}`}>
-                    {bid.bidder_name}
+                    {bid.bidder_name || bid.bidder_email}
                     {idx === 0 && <span className="ml-1 text-xs text-emerald-500">★</span>}
                   </p>
-                  <p className="text-xs text-stone-400">{bid.bidder_email}</p>
-                  <p className="text-xs text-stone-400">{bid.bidder_phone}</p>
+                  {bid.bidder_name && <p className="text-xs text-stone-400">{bid.bidder_email}</p>}
+                  {bid.bidder_phone && <p className="text-xs text-stone-400">{bid.bidder_phone}</p>}
                 </div>
                 <div>
                   <p className={`font-semibold ${idx === 0 ? "text-emerald-700" : "text-stone-700"}`}>

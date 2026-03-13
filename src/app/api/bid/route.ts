@@ -7,9 +7,9 @@ export async function POST(req: NextRequest) {
   let body: {
     auction_id: string;
     amount: number;
-    bidder_name: string;
     bidder_email: string;
-    bidder_phone: string;
+    bidder_name?: string;
+    bidder_phone?: string;
   };
 
   try {
@@ -18,11 +18,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const { auction_id, amount, bidder_name, bidder_email, bidder_phone } = body;
+  const { auction_id, amount, bidder_email, bidder_name = "", bidder_phone = "" } = body;
 
   // Validate required fields
-  if (!auction_id || !amount || !bidder_name || !bidder_email || !bidder_phone) {
-    return NextResponse.json({ error: "All fields are required" }, { status: 400 });
+  if (!auction_id || !amount || !bidder_email) {
+    return NextResponse.json({ error: "Auction, amount, and email are required" }, { status: 400 });
   }
   if (typeof amount !== "number" || amount <= 0) {
     return NextResponse.json({ error: "Invalid bid amount" }, { status: 400 });

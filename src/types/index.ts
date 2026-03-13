@@ -44,9 +44,9 @@ export interface Auction {
 export interface Bid {
   id: string;
   auction_id: string;
-  bidder_name: string;
+  bidder_name: string | null;
   bidder_email: string;
-  bidder_phone: string;
+  bidder_phone: string | null;
   amount: number;
   placed_at: string;
   ip_address: string | null;
