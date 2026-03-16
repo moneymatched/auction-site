@@ -61,26 +61,31 @@ export default function NewAuctionWithPropertyForm() {
     setError("");
     setLoading(true);
 
-    const propRes = await fetch("/api/properties", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: form.title,
-        description: form.description,
-        lat: parsedCoords.lat,
-        lng: parsedCoords.lng,
-      }),
-    });
-    const propData = await propRes.json().catch(() => ({}));
-    if (!propRes.ok) {
-      setError(propData.error ?? "Failed to create property");
-      setLoading(false);
-      return;
-    }
+    try {
+      const propRes = await fetch("/api/properties", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title,
+          description: form.description,
+          lat: parsedCoords.lat,
+          lng: parsedCoords.lng,
+        }),
+      });
+      const propData = await propRes.json().catch(() => ({}));
+      if (!propRes.ok) {
+        setError(propData.error ?? "Failed to create property");
+        setLoading(false);
+        return;
+      }
 
-    setCreatedPropertyId((propData as Property).id);
-    setStep("images");
-    setLoading(false);
+      setCreatedPropertyId((propData as Property).id);
+      setStep("images");
+      setLoading(false);
+    } catch {
+      setError("Network error — please try again");
+      setLoading(false);
+    }
   }
 
   // Step 2: create the auction and redirect
@@ -88,29 +93,34 @@ export default function NewAuctionWithPropertyForm() {
     setError("");
     setLoading(true);
 
-    const auctRes = await fetch("/api/auctions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        property_id: createdPropertyId,
-        status: "upcoming",
-        start_time: new Date(form.start_time).toISOString(),
-        end_time: new Date(form.end_time).toISOString(),
-        starting_bid: parseFloat(form.starting_bid) || 1000,
-        min_bid_increment: 100,
-        auto_extend_seconds: 300,
-        auto_extend_threshold: 300,
-      }),
-    });
-    const auctData = await auctRes.json().catch(() => ({}));
-    if (!auctRes.ok) {
-      setError(auctData.error ?? "Property saved but failed to create auction");
-      setLoading(false);
-      return;
-    }
+    try {
+      const auctRes = await fetch("/api/auctions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          property_id: createdPropertyId,
+          status: "upcoming",
+          start_time: new Date(form.start_time).toISOString(),
+          end_time: new Date(form.end_time).toISOString(),
+          starting_bid: parseFloat(form.starting_bid) || 1000,
+          min_bid_increment: 100,
+          auto_extend_seconds: 300,
+          auto_extend_threshold: 300,
+        }),
+      });
+      const auctData = await auctRes.json().catch(() => ({}));
+      if (!auctRes.ok) {
+        setError(auctData.error ?? "Property saved but failed to create auction");
+        setLoading(false);
+        return;
+      }
 
-    await router.push("/admin/auctions");
-    router.refresh();
+      await router.push("/admin/auctions");
+      router.refresh();
+    } catch {
+      setError("Network error — please try again");
+      setLoading(false);
+    }
   }
 
   if (step === "images") {

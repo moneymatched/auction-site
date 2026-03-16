@@ -165,7 +165,9 @@ export default function AdminAuctionRoom({
       setInvoiceMessage(
         data.warning || "Opening your default email app with the invoice details pre-filled."
       );
-      window.location.href = data.mailto_url as string;
+      const a = document.createElement("a");
+      a.href = data.mailto_url as string;
+      a.click();
     } else {
       setInvoiceMessage("Invoice email sent to winner.");
     }

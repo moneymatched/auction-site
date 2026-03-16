@@ -1,10 +1,14 @@
+import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase";
 import { Auction, Bid, Invoice, Property } from "@/types";
 import { getEffectiveAuctionStatus } from "@/lib/auction-status";
 import { notFound } from "next/navigation";
 import AdminAuctionRoom from "./AdminAuctionRoom";
 
+export const dynamic = "force-dynamic";
+
 async function getData(id: string) {
+  noStore();
   const supabase = createSupabaseServiceClient();
 
   const [{ data: auction }, { data: bids }, { data: properties }, { data: invoice }] = await Promise.all([

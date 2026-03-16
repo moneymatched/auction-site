@@ -42,29 +42,35 @@ export default function AuctionPanel({ property, auction }: AuctionPanelProps) {
     setError("");
     setLoading(true);
 
-    const res = await fetch("/api/auctions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        property_id: property.id,
-        status: "upcoming",
-        start_time: new Date(form.start_time).toISOString(),
-        end_time: new Date(form.end_time).toISOString(),
-        starting_bid: parseFloat(form.starting_bid) || 1000,
-        min_bid_increment: 100,
-        auto_extend_seconds: 300,
-        auto_extend_threshold: 300,
-      }),
-    });
+    try {
+      const res = await fetch("/api/auctions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          property_id: property.id,
+          status: "upcoming",
+          start_time: new Date(form.start_time).toISOString(),
+          end_time: new Date(form.end_time).toISOString(),
+          starting_bid: parseFloat(form.starting_bid) || 1000,
+          min_bid_increment: 100,
+          auto_extend_seconds: 300,
+          auto_extend_threshold: 300,
+        }),
+      });
 
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setError(data.error ?? "Failed to create auction");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Failed to create auction");
+        setLoading(false);
+        return;
+      }
+
       setLoading(false);
-      return;
+      router.refresh();
+    } catch {
+      setError("Network error — please try again");
+      setLoading(false);
     }
-
-    router.refresh();
   }
 
   // No auction yet
