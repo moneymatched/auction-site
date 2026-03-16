@@ -73,6 +73,11 @@ export async function DELETE(
   }
 
   const supabase = createSupabaseServiceClient();
+
+  // First delete any auctions for this property
+  await supabase.from("auctions").delete().eq("property_id", id);
+
+  // Then delete the property itself
   const { error } = await supabase.from("properties").delete().eq("id", id);
 
   if (error) {

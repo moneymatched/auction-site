@@ -1,8 +1,10 @@
+import { unstable_noStore } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase";
 import { Auction } from "@/types";
 import AuctionsClient from "./AuctionsClient";
 
 async function getAllAuctions(): Promise<Auction[]> {
+  unstable_noStore();
   const supabase = createSupabaseServiceClient();
   const { data } = await supabase
     .from("auctions")

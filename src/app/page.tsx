@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { unstable_noStore } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase";
 import AuctionCard from "@/components/AuctionCard";
 import { Auction } from "@/types";
 import { ArrowRight, MapPin, Gavel, Trophy } from "lucide-react";
 
 async function getLiveAuctions(): Promise<Auction[]> {
+  unstable_noStore();
   const supabase = createSupabaseServiceClient();
   const { data } = await supabase
     .from("auctions")
