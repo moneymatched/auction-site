@@ -39,6 +39,9 @@ export function formatTimeRemaining(endTime: string): {
 }
 
 export function getMinimumNextBid(auction: Auction): number {
+  if (auction.current_bid === 0) {
+    return auction.starting_bid;
+  }
   return auction.current_bid + auction.min_bid_increment;
 }
 
