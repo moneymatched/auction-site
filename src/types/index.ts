@@ -62,7 +62,7 @@ export interface Bid {
   was_auto_extended: boolean;
 }
 
-export type InvoiceStatus = "draft" | "sent";
+export type InvoiceStatus = "draft" | "sent" | "paid";
 
 export interface Invoice {
   id: string;
@@ -77,6 +77,7 @@ export interface Invoice {
   due_date: string | null;
   status: InvoiceStatus;
   sent_at: string | null;
+  paid_at: string | null;
   created_at: string;
   updated_at: string;
 }

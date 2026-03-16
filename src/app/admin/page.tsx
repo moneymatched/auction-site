@@ -1,3 +1,4 @@
+import { unstable_noStore } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/auction-utils";
@@ -5,6 +6,7 @@ import { getEffectiveAuctionStatus } from "@/lib/auction-status";
 import { Plus, Building2, Gavel, TrendingUp, ArrowRight } from "lucide-react";
 
 async function getDashboardStats() {
+  unstable_noStore();
   const supabase = createSupabaseServiceClient();
 
   const [{ count: propertyCount }, { count: auctionCount }, { data: allAuctions }, { data: recentBids }] =
