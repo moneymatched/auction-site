@@ -50,7 +50,12 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: "Registration failed" }, { status: 500 });
+    console.error("[bidders] Supabase insert error:", error);
+    const message =
+      error.code === "23505"
+        ? "This email is already registered."
+        : error.message ?? "Registration failed";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 
   return NextResponse.json(data as Bidder, { status: 201 });
