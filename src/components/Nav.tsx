@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, LogIn } from "lucide-react";
 
 export default function Nav() {
   const pathname = usePathname();
@@ -51,6 +51,17 @@ export default function Nav() {
                 {link.label}
               </Link>
             ))}
+            <Link
+              href="/admin"
+              className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-sm transition-colors ml-2 ${
+                isHome 
+                  ? "bg-white/10 text-white hover:bg-white/20 border border-white/20" 
+                  : "bg-stone-900 text-white hover:bg-stone-800"
+              }`}
+            >
+              <LogIn size={14} />
+              Login
+            </Link>
           </nav>
 
           {/* Mobile menu button */}
@@ -85,6 +96,16 @@ export default function Nav() {
                 {link.label}
               </Link>
             ))}
+            <Link
+              href="/admin"
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-sm ${
+                isHome ? "text-white bg-white/10 hover:bg-white/20" : "text-white bg-stone-900 hover:bg-stone-800"
+              }`}
+              onClick={() => setMobileOpen(false)}
+            >
+              <LogIn size={14} />
+              Login
+            </Link>
           </div>
         </div>
       )}
