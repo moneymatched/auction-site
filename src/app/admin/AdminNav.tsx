@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
-import { LayoutDashboard, Building2, Gavel, LogOut, ExternalLink } from "lucide-react";
+import { LayoutDashboard, Building2, Gavel, LogOut, ExternalLink, CreditCard } from "lucide-react";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/properties", label: "Properties", icon: Building2 },
   { href: "/admin/auctions", label: "Auctions", icon: Gavel },
+  { href: "/admin/payments", label: "Payments", icon: CreditCard },
 ];
 
 export default function AdminNav() {

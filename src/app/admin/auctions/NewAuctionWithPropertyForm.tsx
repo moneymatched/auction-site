@@ -2,28 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Save, MapPin, ArrowRight } from "lucide-react";
+import { Loader2, Save, ArrowRight } from "lucide-react";
 import { Property, PropertyImage } from "@/types";
 import ImageUploader from "@/components/admin/ImageUploader";
+import CoordinatePicker from "@/components/admin/CoordinatePicker";
 
 function toLocalDatetimeValue(d: Date): string {
   const pad = (n: number) => n.toString().padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function parseCoords(raw: string): { lat: number | null; lng: number | null } {
-  const parts = raw
-    .replace(/[°'"NSEW]/gi, "")
-    .split(/[\s,]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const lat = parseFloat(parts[0] ?? "");
-  const lng = parseFloat(parts[1] ?? "");
-  return {
-    lat: isNaN(lat) ? null : lat,
-    lng: isNaN(lng) ? null : lng,
-  };
-}
+const ZONING_TYPES = ["Agricultural", "Residential", "Commercial", "Industrial", "Rural", "Mixed Use", "Recreational"];
 
 export default function NewAuctionWithPropertyForm() {
   const router = useRouter();
@@ -40,16 +29,20 @@ export default function NewAuctionWithPropertyForm() {
   const [form, setForm] = useState({
     title: "",
     description: "",
-    coordsRaw: "",
+    address: "",
+    city: "",
+    state: "",
+    acreage: "",
+    zoning_type: "Agricultural",
     start_time: toLocalDatetimeValue(tomorrow),
     end_time: toLocalDatetimeValue(dayAfter),
     starting_bid: "1000",
   });
 
-  const parsedCoords = parseCoords(form.coordsRaw);
-  const coordsValid =
-    form.coordsRaw === "" ||
-    (parsedCoords.lat !== null && parsedCoords.lng !== null);
+  const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({
+    lat: null,
+    lng: null,
+  });
 
   function setField(key: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -68,8 +61,13 @@ export default function NewAuctionWithPropertyForm() {
         body: JSON.stringify({
           title: form.title,
           description: form.description,
-          lat: parsedCoords.lat,
-          lng: parsedCoords.lng,
+          address: form.address,
+          city: form.city,
+          state: form.state,
+          acreage: parseFloat(form.acreage) || 0,
+          zoning_type: form.zoning_type,
+          lat: coords.lat,
+          lng: coords.lng,
         }),
       });
       const propData = await propRes.json().catch(() => ({}));
@@ -191,37 +189,79 @@ export default function NewAuctionWithPropertyForm() {
           />
         </div>
 
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="label">Acreage</label>
+            <input
+              type="number"
+              value={form.acreage}
+              onChange={(e) => setField("acreage", e.target.value)}
+              className="input-field"
+              placeholder="40"
+              min="0"
+              step="0.01"
+            />
+          </div>
+          <div>
+            <label className="label">Zoning Type</label>
+            <select
+              value={form.zoning_type}
+              onChange={(e) => setField("zoning_type", e.target.value)}
+              className="input-field"
+            >
+              {ZONING_TYPES.map((z) => (
+                <option key={z} value={z}>{z}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         <div>
-          <label className="label flex items-center gap-1.5">
-            <MapPin size={13} />
-            GPS Coordinates
-          </label>
+          <label className="label">Street Address</label>
           <input
             type="text"
-            value={form.coordsRaw}
-            onChange={(e) => setField("coordsRaw", e.target.value)}
-            className={`input-field font-mono text-sm ${
-              form.coordsRaw && !coordsValid
-                ? "border-red-300 focus:ring-red-300"
-                : ""
-            }`}
-            placeholder="30.274650, -97.740292"
+            value={form.address}
+            onChange={(e) => setField("address", e.target.value)}
+            className="input-field"
+            placeholder="123 County Road 45"
           />
-          <p className="text-xs text-stone-400 mt-1">
-            Paste a latitude, longitude pair — e.g.{" "}
-            <span className="font-mono">30.274650, -97.740292</span>
-          </p>
-          {form.coordsRaw && coordsValid && parsedCoords.lat !== null && (
-            <p className="text-xs text-emerald-600 mt-1 font-mono">
-              {parsedCoords.lat.toFixed(6)}, {parsedCoords.lng!.toFixed(6)}
-            </p>
-          )}
-          {form.coordsRaw && !coordsValid && (
-            <p className="text-xs text-red-500 mt-1">
-              Could not parse coordinates — check the format.
-            </p>
-          )}
         </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="label">City</label>
+            <input
+              type="text"
+              value={form.city}
+              onChange={(e) => setField("city", e.target.value)}
+              className="input-field"
+              placeholder="Fredericksburg"
+            />
+          </div>
+          <div>
+            <label className="label">State</label>
+            <input
+              type="text"
+              value={form.state}
+              onChange={(e) => setField("state", e.target.value)}
+              className="input-field"
+              placeholder="TX"
+              maxLength={2}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* GPS Location */}
+      <div className="card p-6 space-y-4">
+        <h2 className="text-sm font-semibold text-stone-900 border-b border-stone-100 pb-3">
+          GPS Location
+        </h2>
+        <CoordinatePicker
+          lat={coords.lat}
+          lng={coords.lng}
+          onChange={(lat, lng) => setCoords({ lat, lng })}
+        />
       </div>
 
       {/* Auction timing */}

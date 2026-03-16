@@ -34,8 +34,9 @@ type InvoiceRow = {
   amount: number;
   notes: string | null;
   due_date: string | null;
-  status: "draft" | "sent";
+  status: "draft" | "sent" | "paid";
   sent_at: string | null;
+  paid_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -375,4 +376,30 @@ export async function POST(
     delivery: "resend",
     invoice: sentInvoice,
   });
+}
+
+export async function PUT(
+  _req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.error;
+
+  const supabase = createSupabaseServiceClient();
+  const { data, error } = await supabase
+    .from("invoices")
+    .update({
+      status: "paid",
+      paid_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("auction_id", params.id)
+    .select("*")
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: "Failed to mark as paid" }, { status: 500 });
+  }
+
+  return NextResponse.json({ invoice: data });
 }

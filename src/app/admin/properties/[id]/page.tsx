@@ -1,3 +1,4 @@
+import { unstable_noStore } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase";
 import { Auction, Property } from "@/types";
 import { notFound } from "next/navigation";
@@ -5,6 +6,7 @@ import PropertyForm from "../PropertyForm";
 import AuctionPanel from "@/components/admin/AuctionPanel";
 
 async function getData(id: string): Promise<{ property: Property; auction: Auction | null } | null> {
+  unstable_noStore();
   const supabase = createSupabaseServiceClient();
 
   const [{ data: property }, { data: auction }] = await Promise.all([

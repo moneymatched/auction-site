@@ -42,9 +42,7 @@ function RegistrationStep({ onRegistered, onClose }: RegistrationStepProps) {
     first_name: "",
     last_name: "",
     email: "",
-    confirm_email: "",
     phone: "",
-    confirm_phone: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -56,15 +54,6 @@ function RegistrationStep({ onRegistered, onClose }: RegistrationStepProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-
-    if (form.email.toLowerCase() !== form.confirm_email.toLowerCase()) {
-      setError("Email addresses do not match.");
-      return;
-    }
-    if (form.phone.replace(/\D/g, "") !== form.confirm_phone.replace(/\D/g, "")) {
-      setError("Phone numbers do not match.");
-      return;
-    }
 
     setLoading(true);
     try {
@@ -144,35 +133,11 @@ function RegistrationStep({ onRegistered, onClose }: RegistrationStepProps) {
         </div>
 
         <div>
-          <label className="label">Confirm Email Address *</label>
-          <input
-            type="email"
-            value={form.confirm_email}
-            onChange={(e) => setField("confirm_email", e.target.value)}
-            className="input-field"
-            placeholder="jane@example.com"
-            required
-          />
-        </div>
-
-        <div>
           <label className="label">Phone Number *</label>
           <input
             type="tel"
             value={form.phone}
             onChange={(e) => setField("phone", e.target.value)}
-            className="input-field"
-            placeholder="(555) 123-4567"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="label">Confirm Phone Number *</label>
-          <input
-            type="tel"
-            value={form.confirm_phone}
-            onChange={(e) => setField("confirm_phone", e.target.value)}
             className="input-field"
             placeholder="(555) 123-4567"
             required

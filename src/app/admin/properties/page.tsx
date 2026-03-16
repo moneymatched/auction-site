@@ -1,3 +1,4 @@
+import { unstable_noStore } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase";
 import { Property } from "@/types";
 import Link from "next/link";
@@ -9,6 +10,7 @@ type PropertyWithAuction = Property & {
 };
 
 async function getProperties(): Promise<PropertyWithAuction[]> {
+  unstable_noStore();
   const supabase = createSupabaseServiceClient();
   const { data } = await supabase
     .from("properties")

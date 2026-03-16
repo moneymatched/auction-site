@@ -347,7 +347,9 @@ export default function AdminAuctionRoom({
             <div>
               <p className="text-xs text-stone-400">Invoice Status</p>
               <p className="text-sm font-medium text-stone-900">
-                {invoice?.status === "sent"
+                {invoice?.status === "paid"
+                  ? `Paid${invoice.paid_at ? ` on ${new Date(invoice.paid_at).toLocaleString()}` : ""}`
+                  : invoice?.status === "sent"
                   ? `Sent${invoice.sent_at ? ` on ${new Date(invoice.sent_at).toLocaleString()}` : ""}`
                   : "Draft"}
               </p>
