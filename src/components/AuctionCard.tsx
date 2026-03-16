@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Auction } from "@/types";
 import { formatCurrency, getStatusLabel, getStatusColor } from "@/lib/auction-utils";
 import { getImageUrl } from "@/lib/supabase";
+import { getEffectiveAuctionStatus } from "@/lib/auction-status";
 import CountdownTimer from "./CountdownTimer";
 import { MapPin, Maximize2 } from "lucide-react";
 
@@ -15,6 +16,7 @@ export default function AuctionCard({ auction }: AuctionCardProps) {
   const primaryImage = property?.images?.find((img) => img.is_primary) ?? property?.images?.[0];
   const imageUrl = primaryImage ? getImageUrl(primaryImage.storage_path) : null;
   const displayBid = auction.current_bid > 0 ? auction.current_bid : auction.starting_bid;
+  const effectiveStatus = getEffectiveAuctionStatus(auction);
 
   return (
     <Link href={`/auctions/${auction.id}`} className="group block card hover:shadow-md transition-shadow">
@@ -36,11 +38,11 @@ export default function AuctionCard({ auction }: AuctionCardProps) {
 
         {/* Status badge */}
         <div className="absolute top-3 left-3">
-          <span className={`status-badge bg-white/90 backdrop-blur-sm ${getStatusColor(auction.status)}`}>
-            {auction.status === "live" && (
+          <span className={`status-badge bg-white/90 backdrop-blur-sm ${getStatusColor(effectiveStatus)}`}>
+            {effectiveStatus === "live" && (
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             )}
-            {getStatusLabel(auction.status)}
+            {getStatusLabel(effectiveStatus)}
           </span>
         </div>
 
@@ -85,8 +87,8 @@ export default function AuctionCard({ auction }: AuctionCardProps) {
 
           <div className="text-right">
             <CountdownTimer
-              endTime={auction.status === "upcoming" ? auction.start_time : auction.end_time}
-              status={auction.status}
+              endTime={effectiveStatus === "upcoming" ? auction.start_time : auction.end_time}
+              status={effectiveStatus}
               size="sm"
             />
           </div>

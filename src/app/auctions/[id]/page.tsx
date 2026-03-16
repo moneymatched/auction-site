@@ -1,5 +1,6 @@
 import { createSupabaseServiceClient } from "@/lib/supabase";
 import { Auction, Bid } from "@/types";
+import { getEffectiveAuctionStatus } from "@/lib/auction-status";
 import { notFound } from "next/navigation";
 import AuctionRoom from "./AuctionRoom";
 
@@ -21,7 +22,12 @@ async function getAuction(id: string): Promise<{ auction: Auction; bids: Bid[] }
     .order("placed_at", { ascending: false })
     .limit(50);
 
-  return { auction: auction as Auction, bids: (bids as Bid[]) ?? [] };
+  const normalizedAuction = {
+    ...(auction as Auction),
+    status: getEffectiveAuctionStatus(auction as Auction),
+  };
+
+  return { auction: normalizedAuction, bids: (bids as Bid[]) ?? [] };
 }
 
 export default async function AuctionPage({ params }: { params: { id: string } }) {

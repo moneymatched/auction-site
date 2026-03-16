@@ -61,3 +61,22 @@ export interface Bid {
   ip_address: string | null;
   was_auto_extended: boolean;
 }
+
+export type InvoiceStatus = "draft" | "sent";
+
+export interface Invoice {
+  id: string;
+  auction_id: string;
+  winner_bid_id: string | null;
+  invoice_number: string;
+  winner_name: string | null;
+  winner_email: string;
+  winner_phone: string | null;
+  amount: number;
+  notes: string | null;
+  due_date: string | null;
+  status: InvoiceStatus;
+  sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
