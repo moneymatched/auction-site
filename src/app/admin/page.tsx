@@ -1,18 +1,29 @@
 import { createSupabaseServiceClient } from "@/lib/supabase";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/auction-utils";
+import { getEffectiveAuctionStatus } from "@/lib/auction-status";
 import { Plus, Building2, Gavel, TrendingUp, ArrowRight } from "lucide-react";
 
 async function getDashboardStats() {
   const supabase = createSupabaseServiceClient();
 
-  const [{ count: propertyCount }, { count: auctionCount }, { data: liveAuctions }, { data: recentBids }] =
+  const [{ count: propertyCount }, { count: auctionCount }, { data: allAuctions }, { data: recentBids }] =
     await Promise.all([
       supabase.from("properties").select("*", { count: "exact", head: true }),
       supabase.from("auctions").select("*", { count: "exact", head: true }),
-      supabase.from("auctions").select("id, current_bid, bid_count, property:properties(title)").eq("status", "live"),
+      supabase.from("auctions").select("id, status, start_time, end_time, current_bid, bid_count, property:properties(title)"),
       supabase.from("bids").select("*").order("placed_at", { ascending: false }).limit(10),
     ]);
+
+  const liveAuctions = ((allAuctions ?? []) as unknown as Array<{
+    id: string;
+    status: "upcoming" | "live" | "ended" | "cancelled";
+    start_time: string;
+    end_time: string;
+    current_bid: number;
+    bid_count: number;
+    property: { title: string } | Array<{ title: string }>;
+  }>).filter((auction) => getEffectiveAuctionStatus(auction) === "live");
 
   return { propertyCount, auctionCount, liveAuctions, recentBids };
 }
@@ -22,7 +33,18 @@ export const dynamic = "force-dynamic";
 export default async function AdminDashboardPage() {
   const { propertyCount, auctionCount, liveAuctions, recentBids } = await getDashboardStats();
 
-  const live = (liveAuctions ?? []) as unknown as Array<{ id: string; current_bid: number; bid_count: number; property: { title: string } }>;
+  const live = (liveAuctions ?? []).map((auction) => {
+    const propertyTitle = Array.isArray(auction.property)
+      ? (auction.property[0]?.title ?? "—")
+      : (auction.property?.title ?? "—");
+
+    return {
+      id: auction.id,
+      current_bid: auction.current_bid,
+      bid_count: auction.bid_count,
+      property: { title: propertyTitle },
+    };
+  });
   const bids = (recentBids ?? []) as Array<{ id: string; bidder_name: string | null; bidder_email: string; amount: number; placed_at: string; auction_id: string }>;
 
   return (

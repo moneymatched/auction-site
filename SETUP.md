@@ -5,7 +5,10 @@
 1. Go to [supabase.com](https://supabase.com) → New Project
 2. Copy your **Project URL** and **anon key** from Settings → API
 3. Also copy the **service_role key** (keep this secret)
-4. Run the migration: In the SQL Editor, paste and run `supabase/migrations/001_initial_schema.sql`
+4. Run migrations in SQL Editor:
+   - `supabase/migrations/001_initial_schema.sql`
+   - `supabase/migrations/002_bidders.sql`
+   - `supabase/migrations/003_invoices.sql`
 5. Create a Storage bucket named `property-images` (Storage → New bucket → Public: YES)
 6. Create your admin user: Authentication → Users → Add User (use email/password)
 
@@ -20,6 +23,10 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...
+
+# Optional (for direct invoice emails from app)
+RESEND_API_KEY=re_...
+INVOICE_FROM_EMAIL=invoice@acrebid.com
 ```
 
 ## 3. Get a Google Maps API Key
@@ -65,7 +72,11 @@ Add the same environment variables in Vercel Dashboard → Settings → Environm
 2. Click **Go Live** when ready
 3. Monitor real-time bids in the admin panel
 4. Use +5m / +10m / +30m buttons to manually extend if needed
-5. When auction ends, the winner's contact info is displayed — click **Export CSV** for full bid list
+5. When auction ends, use the **Winner Invoice** panel to:
+   - Add invoice notes/payment instructions
+   - Save draft invoice details
+   - Email invoice directly to the winner
+6. Click **Export CSV** for full bid list if needed
 
 ## Auto-extend Behavior
 

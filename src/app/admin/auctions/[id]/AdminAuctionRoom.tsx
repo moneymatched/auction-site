@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Auction, Bid, Property } from "@/types";
+import { Auction, Bid, Invoice, Property } from "@/types";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { formatCurrency, getStatusColor, getStatusLabel } from "@/lib/auction-utils";
+import { getEffectiveAuctionStatus } from "@/lib/auction-status";
 import CountdownTimer from "@/components/CountdownTimer";
 import AuctionForm from "../AuctionForm";
 import {
@@ -16,20 +17,36 @@ import {
   Eye,
   ChevronDown,
   ChevronUp,
+  Save,
+  Mail,
+  FileText,
 } from "lucide-react";
 
 interface AdminAuctionRoomProps {
   auction: Auction;
   bids: Bid[];
   properties: Property[];
+  invoice: Invoice | null;
 }
 
-export default function AdminAuctionRoom({ auction: initialAuction, bids: initialBids, properties }: AdminAuctionRoomProps) {
+export default function AdminAuctionRoom({
+  auction: initialAuction,
+  bids: initialBids,
+  properties,
+  invoice: initialInvoice,
+}: AdminAuctionRoomProps) {
   const [auction, setAuction] = useState(initialAuction);
   const [bids, setBids] = useState(initialBids);
   const [saving, setSaving] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [confirmingEnd, setConfirmingEnd] = useState(false);
+  const [invoice, setInvoice] = useState<Invoice | null>(initialInvoice);
+  const [invoiceNotes, setInvoiceNotes] = useState(initialInvoice?.notes ?? "");
+  const [invoiceDueDate, setInvoiceDueDate] = useState(initialInvoice?.due_date ?? "");
+  const [invoiceSaving, setInvoiceSaving] = useState(false);
+  const [invoiceSending, setInvoiceSending] = useState(false);
+  const [invoiceError, setInvoiceError] = useState<string | null>(null);
+  const [invoiceMessage, setInvoiceMessage] = useState<string | null>(null);
 
   // Realtime subscription
   useEffect(() => {
@@ -92,8 +109,68 @@ export default function AdminAuctionRoom({ auction: initialAuction, bids: initia
     URL.revokeObjectURL(url);
   }
 
-  const winner = bids[0];
+  const winner = bids.reduce<Bid | null>((current, candidate) => {
+    if (!current) return candidate;
+    if (candidate.amount > current.amount) return candidate;
+    if (candidate.amount < current.amount) return current;
+    return new Date(candidate.placed_at) > new Date(current.placed_at) ? candidate : current;
+  }, null);
   const property = auction.property!;
+  const effectiveStatus = getEffectiveAuctionStatus(auction);
+
+  async function saveInvoiceDraft() {
+    setInvoiceSaving(true);
+    setInvoiceError(null);
+    setInvoiceMessage(null);
+    const res = await fetch(`/api/auctions/${auction.id}/invoice`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        notes: invoiceNotes,
+        due_date: invoiceDueDate || null,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setInvoiceError(data.error || "Failed to save invoice draft");
+      setInvoiceSaving(false);
+      return;
+    }
+    setInvoice(data.invoice as Invoice);
+    setInvoiceMessage("Invoice draft saved.");
+    setInvoiceSaving(false);
+  }
+
+  async function sendInvoice() {
+    setInvoiceSending(true);
+    setInvoiceError(null);
+    setInvoiceMessage(null);
+    const res = await fetch(`/api/auctions/${auction.id}/invoice`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        notes: invoiceNotes,
+        due_date: invoiceDueDate || null,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setInvoiceError(data.error || "Failed to send invoice");
+      setInvoiceSending(false);
+      return;
+    }
+
+    setInvoice(data.invoice as Invoice);
+    if (data.delivery === "mailto" && data.mailto_url) {
+      setInvoiceMessage(
+        data.warning || "Opening your default email app with the invoice details pre-filled."
+      );
+      window.location.href = data.mailto_url as string;
+    } else {
+      setInvoiceMessage("Invoice email sent to winner.");
+    }
+    setInvoiceSending(false);
+  }
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6">
@@ -102,9 +179,9 @@ export default function AdminAuctionRoom({ auction: initialAuction, bids: initia
         <div>
           <h1 className="text-2xl font-semibold text-stone-900">{property.title}</h1>
           <div className="flex items-center gap-2 mt-1">
-            <span className={`status-badge ${getStatusColor(auction.status)}`}>
-              {auction.status === "live" && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
-              {getStatusLabel(auction.status)}
+            <span className={`status-badge ${getStatusColor(effectiveStatus)}`}>
+              {effectiveStatus === "live" && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
+              {getStatusLabel(effectiveStatus)}
             </span>
             <span className="text-sm text-stone-400">{auction.bid_count} bids</span>
           </div>
@@ -134,13 +211,13 @@ export default function AdminAuctionRoom({ auction: initialAuction, bids: initia
         {/* Timer */}
         <div className="card p-5">
           <p className="text-xs text-stone-400 mb-2">Time Remaining</p>
-          <CountdownTimer endTime={auction.end_time} status={auction.status} size="md" />
+          <CountdownTimer endTime={auction.end_time} status={effectiveStatus} size="md" />
         </div>
 
         {/* Actions */}
         <div className="card p-5 space-y-2">
           <p className="text-xs text-stone-400 mb-1">Controls</p>
-          {auction.status !== "live" && (
+          {effectiveStatus !== "live" && (
             <button
               onClick={() => updateStatus("live")}
               disabled={saving}
@@ -150,7 +227,7 @@ export default function AdminAuctionRoom({ auction: initialAuction, bids: initia
               Go Live
             </button>
           )}
-          {auction.status === "live" && !confirmingEnd && (
+          {effectiveStatus === "live" && !confirmingEnd && (
             <button
               onClick={() => setConfirmingEnd(true)}
               disabled={saving}
@@ -160,7 +237,7 @@ export default function AdminAuctionRoom({ auction: initialAuction, bids: initia
               End Auction
             </button>
           )}
-          {auction.status === "live" && confirmingEnd && (
+          {effectiveStatus === "live" && confirmingEnd && (
             <div className="flex gap-2">
               <button
                 onClick={() => { setConfirmingEnd(false); updateStatus("ended"); }}
@@ -194,12 +271,12 @@ export default function AdminAuctionRoom({ auction: initialAuction, bids: initia
       </div>
 
       {/* Winner highlight */}
-      {winner && (auction.status === "ended" || auction.status === "live") && (
-        <div className={`card p-5 ${auction.status === "ended" ? "border-emerald-200 bg-emerald-50" : "border-stone-200"}`}>
+      {winner && (effectiveStatus === "ended" || effectiveStatus === "live") && (
+        <div className={`card p-5 ${effectiveStatus === "ended" ? "border-emerald-200 bg-emerald-50" : "border-stone-200"}`}>
           <div className="flex items-center gap-2 mb-3">
-            <Trophy size={16} className={auction.status === "ended" ? "text-emerald-600" : "text-stone-400"} />
+            <Trophy size={16} className={effectiveStatus === "ended" ? "text-emerald-600" : "text-stone-400"} />
             <h2 className="text-sm font-semibold text-stone-900">
-              {auction.status === "ended" ? "Winner" : "Highest Bidder"}
+              {effectiveStatus === "ended" ? "Winner" : "Highest Bidder"}
             </h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -223,6 +300,92 @@ export default function AdminAuctionRoom({ auction: initialAuction, bids: initia
               <p className="text-xs text-stone-400">Winning Bid</p>
               <p className="text-sm font-semibold text-emerald-700">{formatCurrency(winner.amount)}</p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice panel */}
+      {winner && effectiveStatus === "ended" && (
+        <div className="card p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <FileText size={16} className="text-stone-500" />
+            <h2 className="text-sm font-semibold text-stone-900">Winner Invoice</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <p className="text-xs text-stone-400">Invoice Number</p>
+              <p className="text-sm font-medium text-stone-900">
+                {invoice?.invoice_number || "Will be generated when saved"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-stone-400">Winner Email</p>
+              <p className="text-sm font-medium text-stone-900">{winner.bidder_email}</p>
+            </div>
+            <div>
+              <p className="text-xs text-stone-400">Amount Due</p>
+              <p className="text-sm font-semibold text-emerald-700">
+                {formatCurrency(winner.amount)}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="invoice-due-date" className="label">Due date</label>
+              <input
+                id="invoice-due-date"
+                type="date"
+                className="input-field"
+                value={invoiceDueDate}
+                onChange={(e) => setInvoiceDueDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <p className="text-xs text-stone-400">Invoice Status</p>
+              <p className="text-sm font-medium text-stone-900">
+                {invoice?.status === "sent"
+                  ? `Sent${invoice.sent_at ? ` on ${new Date(invoice.sent_at).toLocaleString()}` : ""}`
+                  : "Draft"}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="invoice-notes" className="label">Notes to include in invoice email</label>
+            <textarea
+              id="invoice-notes"
+              className="input-field min-h-28"
+              placeholder="Add payment instructions, pickup details, or any winner notes."
+              value={invoiceNotes}
+              onChange={(e) => setInvoiceNotes(e.target.value)}
+            />
+          </div>
+
+          {(invoiceError || invoiceMessage) && (
+            <p className={`text-sm ${invoiceError ? "text-red-600" : "text-emerald-700"}`}>
+              {invoiceError || invoiceMessage}
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={saveInvoiceDraft}
+              disabled={invoiceSaving || invoiceSending}
+              className="btn-secondary text-sm"
+            >
+              <Save size={14} />
+              {invoiceSaving ? "Saving..." : "Save Draft"}
+            </button>
+            <button
+              onClick={sendInvoice}
+              disabled={invoiceSaving || invoiceSending}
+              className="btn-primary text-sm"
+            >
+              <Mail size={14} />
+              {invoiceSending ? "Sending..." : "Email Invoice to Winner"}
+            </button>
           </div>
         </div>
       )}

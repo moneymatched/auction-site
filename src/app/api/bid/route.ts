@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase";
+import { getEffectiveAuctionStatus } from "@/lib/auction-status";
 
 export async function POST(req: NextRequest) {
   const supabase = createSupabaseServiceClient();
@@ -39,7 +40,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Auction not found" }, { status: 404 });
   }
 
-  if (auction.status !== "live") {
+  const effectiveStatus = getEffectiveAuctionStatus(auction);
+  if (effectiveStatus !== "live") {
     return NextResponse.json({ error: "This auction is not currently active" }, { status: 409 });
   }
 

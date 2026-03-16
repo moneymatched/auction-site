@@ -3,6 +3,7 @@ import { unstable_noStore } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase";
 import AuctionCard from "@/components/AuctionCard";
 import { Auction } from "@/types";
+import { getEffectiveAuctionStatus } from "@/lib/auction-status";
 import { ArrowRight, MapPin, Gavel, Trophy } from "lucide-react";
 
 async function getLiveAuctions(): Promise<Auction[]> {
@@ -11,11 +12,18 @@ async function getLiveAuctions(): Promise<Auction[]> {
   const { data } = await supabase
     .from("auctions")
     .select(`*, property:properties(*, images:property_images(*))`)
-    .in("status", ["live", "upcoming"])
-    .order("status", { ascending: true })
-    .order("end_time", { ascending: true })
-    .limit(3);
-  return (data as Auction[]) ?? [];
+    .neq("status", "cancelled")
+    .order("end_time", { ascending: true });
+
+  const auctions = ((data as Auction[]) ?? [])
+    .map((auction) => ({
+      ...auction,
+      status: getEffectiveAuctionStatus(auction),
+    }))
+    .filter((auction) => auction.status === "live" || auction.status === "upcoming")
+    .slice(0, 3);
+
+  return auctions;
 }
 
 export const dynamic = "force-dynamic";

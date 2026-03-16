@@ -73,11 +73,17 @@ export async function DELETE(
   }
 
   const supabase = createSupabaseServiceClient();
+  // Delete related auctions first so test data can be cleaned up easily.
+  // Bid/proxy rows are removed via FK cascade from auctions.
+  const { error: auctionDeleteError } = await supabase
+    .from("auctions")
+    .delete()
+    .eq("property_id", id);
 
-  // First delete any auctions for this property
-  await supabase.from("auctions").delete().eq("property_id", id);
+  if (auctionDeleteError) {
+    return NextResponse.json({ error: "Failed to delete related auctions" }, { status: 500 });
+  }
 
-  // Then delete the property itself
   const { error } = await supabase.from("properties").delete().eq("id", id);
 
   if (error) {

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Auction, Bid } from "@/types";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { formatCurrency, getStatusColor, getStatusLabel } from "@/lib/auction-utils";
+import { getEffectiveAuctionStatus } from "@/lib/auction-status";
 import ImageGallery from "@/components/ImageGallery";
 import CountdownTimer from "@/components/CountdownTimer";
 import BidForm from "@/components/BidForm";
@@ -24,6 +25,7 @@ export default function AuctionRoom({ initialAuction, initialBids }: AuctionRoom
   const [bidSuccess, setBidSuccess] = useState(false);
 
   const property = auction.property!;
+  const effectiveStatus = getEffectiveAuctionStatus(auction);
 
   // Subscribe to realtime updates
   useEffect(() => {
@@ -58,7 +60,7 @@ export default function AuctionRoom({ initialAuction, initialBids }: AuctionRoom
     setTimeout(() => setBidSuccess(false), 5000);
   }, []);
 
-  const canBid = auction.status === "live" && new Date(auction.end_time) > new Date();
+  const canBid = effectiveStatus === "live" && new Date(auction.end_time) > new Date();
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -85,11 +87,11 @@ export default function AuctionRoom({ initialAuction, initialBids }: AuctionRoom
           <div>
             <div className="flex items-start justify-between gap-4 mb-3">
               <h1 className="text-2xl font-semibold text-stone-900">{property.title}</h1>
-              <span className={`status-badge shrink-0 ${getStatusColor(auction.status)}`}>
-                {auction.status === "live" && (
+              <span className={`status-badge shrink-0 ${getStatusColor(effectiveStatus)}`}>
+                {effectiveStatus === "live" && (
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 )}
-                {getStatusLabel(auction.status)}
+                {getStatusLabel(effectiveStatus)}
               </span>
             </div>
 
@@ -163,11 +165,11 @@ export default function AuctionRoom({ initialAuction, initialBids }: AuctionRoom
               {/* Timer */}
               <div className="py-4 border-y border-stone-100 mb-5">
                 <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">
-                  {auction.status === "upcoming" ? "Starts In" : "Time Remaining"}
+                  {effectiveStatus === "upcoming" ? "Starts In" : "Time Remaining"}
                 </p>
                 <CountdownTimer
-                  endTime={auction.status === "upcoming" ? auction.start_time : auction.end_time}
-                  status={auction.status}
+                  endTime={effectiveStatus === "upcoming" ? auction.start_time : auction.end_time}
+                  status={effectiveStatus}
                   size="lg"
                   showExtendedBanner
                 />
@@ -187,7 +189,7 @@ export default function AuctionRoom({ initialAuction, initialBids }: AuctionRoom
                   <Gavel size={18} />
                   Place Bid
                 </button>
-              ) : auction.status === "upcoming" ? (
+              ) : effectiveStatus === "upcoming" ? (
                 <div className="text-center py-2 text-sm text-stone-500">
                   Bidding opens when auction starts
                 </div>
