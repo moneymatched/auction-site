@@ -69,7 +69,33 @@ export async function POST(req: NextRequest) {
     ? new Date(new Date(auction.end_time).getTime() + auction.auto_extend_seconds * 1000).toISOString()
     : auction.end_time;
 
-  // Insert the bid
+  // Update auction with optimistic lock on current_bid to prevent race conditions.
+  // If another bid was accepted between our read and now, current_bid will have changed
+  // and this update will match 0 rows, returning null from maybeSingle().
+  const { data: updatedAuction, error: updateError } = await supabase
+    .from("auctions")
+    .update({
+      current_bid: amount,
+      bid_count: auction.bid_count + 1,
+      end_time: newEndTime,
+    })
+    .eq("id", auction_id)
+    .eq("current_bid", auction.current_bid)
+    .select()
+    .maybeSingle();
+
+  if (updateError) {
+    return NextResponse.json({ error: "Failed to update auction" }, { status: 500 });
+  }
+
+  if (!updatedAuction) {
+    return NextResponse.json(
+      { error: "A higher bid was just placed. Please refresh and try again." },
+      { status: 409 }
+    );
+  }
+
+  // Record the bid now that the auction state is confirmed updated
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
   const { error: bidError } = await supabase.from("bids").insert({
     auction_id,
@@ -83,20 +109,6 @@ export async function POST(req: NextRequest) {
 
   if (bidError) {
     return NextResponse.json({ error: "Failed to record bid" }, { status: 500 });
-  }
-
-  // Update auction
-  const { error: updateError } = await supabase
-    .from("auctions")
-    .update({
-      current_bid: amount,
-      bid_count: auction.bid_count + 1,
-      end_time: newEndTime,
-    })
-    .eq("id", auction_id);
-
-  if (updateError) {
-    return NextResponse.json({ error: "Failed to update auction" }, { status: 500 });
   }
 
   return NextResponse.json({

@@ -29,6 +29,7 @@ export default function AdminAuctionRoom({ auction: initialAuction, bids: initia
   const [bids, setBids] = useState(initialBids);
   const [saving, setSaving] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [confirmingEnd, setConfirmingEnd] = useState(false);
 
   // Realtime subscription
   useEffect(() => {
@@ -78,7 +79,7 @@ export default function AdminAuctionRoom({ auction: initialAuction, bids: initia
       .reverse()
       .map((b) =>
         [b.bidder_name, b.bidder_email, b.bidder_phone, b.amount, b.placed_at, b.was_auto_extended ? "Yes" : "No"]
-          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .map((v) => `"${String(v ?? "").replace(/"/g, '""').replace(/[\r\n]+/g, " ")}"`)
           .join(",")
       )
       .join("\n");
@@ -149,15 +150,33 @@ export default function AdminAuctionRoom({ auction: initialAuction, bids: initia
               Go Live
             </button>
           )}
-          {auction.status === "live" && (
+          {auction.status === "live" && !confirmingEnd && (
             <button
-              onClick={() => confirm("End this auction?") && updateStatus("ended")}
+              onClick={() => setConfirmingEnd(true)}
               disabled={saving}
               className="btn-secondary w-full text-sm text-red-600 border-red-200 hover:bg-red-50"
             >
               <Square size={14} />
               End Auction
             </button>
+          )}
+          {auction.status === "live" && confirmingEnd && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setConfirmingEnd(false); updateStatus("ended"); }}
+                disabled={saving}
+                className="btn-secondary flex-1 text-sm text-red-600 border-red-300 bg-red-50 hover:bg-red-100"
+              >
+                Confirm End
+              </button>
+              <button
+                onClick={() => setConfirmingEnd(false)}
+                disabled={saving}
+                className="btn-ghost text-sm flex-1"
+              >
+                Cancel
+              </button>
+            </div>
           )}
           <div className="flex gap-2">
             {[5, 10, 30].map((min) => (

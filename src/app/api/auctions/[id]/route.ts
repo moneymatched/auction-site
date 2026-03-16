@@ -54,8 +54,30 @@ export async function PATCH(
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update auction" }, { status: 500 });
   }
 
   return NextResponse.json(data);
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.error;
+
+  const id = params.id;
+  if (!id) {
+    return NextResponse.json({ error: "Missing auction id" }, { status: 400 });
+  }
+
+  const supabase = createSupabaseServiceClient();
+  const { error } = await supabase.from("auctions").delete().eq("id", id);
+
+  if (error) {
+    return NextResponse.json({ error: "Failed to delete auction" }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
 }

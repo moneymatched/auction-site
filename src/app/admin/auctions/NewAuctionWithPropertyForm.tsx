@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Save, MapPin } from "lucide-react";
-import { Property } from "@/types";
+import { Loader2, Save, MapPin, ArrowRight } from "lucide-react";
+import { Property, PropertyImage } from "@/types";
+import ImageUploader from "@/components/admin/ImageUploader";
 
 function toLocalDatetimeValue(d: Date): string {
   const pad = (n: number) => n.toString().padStart(2, "0");
@@ -28,6 +29,9 @@ export default function NewAuctionWithPropertyForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [step, setStep] = useState<"details" | "images">("details");
+  const [createdPropertyId, setCreatedPropertyId] = useState<string | null>(null);
+  const [images, setImages] = useState<PropertyImage[]>([]);
 
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -51,23 +55,21 @@ export default function NewAuctionWithPropertyForm() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  // Step 1: create the property, then show image uploader
+  async function handleSubmitDetails(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    // Step 1: create the property
-    const propertyPayload = {
-      title: form.title,
-      description: form.description,
-      lat: parsedCoords.lat,
-      lng: parsedCoords.lng,
-    };
-
     const propRes = await fetch("/api/properties", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(propertyPayload),
+      body: JSON.stringify({
+        title: form.title,
+        description: form.description,
+        lat: parsedCoords.lat,
+        lng: parsedCoords.lng,
+      }),
     });
     const propData = await propRes.json().catch(() => ({}));
     if (!propRes.ok) {
@@ -76,24 +78,29 @@ export default function NewAuctionWithPropertyForm() {
       return;
     }
 
-    const propertyId = (propData as Property).id;
+    setCreatedPropertyId((propData as Property).id);
+    setStep("images");
+    setLoading(false);
+  }
 
-    // Step 2: create the auction
-    const auctionPayload = {
-      property_id: propertyId,
-      status: "upcoming",
-      start_time: new Date(form.start_time).toISOString(),
-      end_time: new Date(form.end_time).toISOString(),
-      starting_bid: parseFloat(form.starting_bid) || 1000,
-      min_bid_increment: 100,
-      auto_extend_seconds: 300,
-      auto_extend_threshold: 300,
-    };
+  // Step 2: create the auction and redirect
+  async function handleCreateAuction() {
+    setError("");
+    setLoading(true);
 
     const auctRes = await fetch("/api/auctions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(auctionPayload),
+      body: JSON.stringify({
+        property_id: createdPropertyId,
+        status: "upcoming",
+        start_time: new Date(form.start_time).toISOString(),
+        end_time: new Date(form.end_time).toISOString(),
+        starting_bid: parseFloat(form.starting_bid) || 1000,
+        min_bid_increment: 100,
+        auto_extend_seconds: 300,
+        auto_extend_threshold: 300,
+      }),
     });
     const auctData = await auctRes.json().catch(() => ({}));
     if (!auctRes.ok) {
@@ -102,12 +109,49 @@ export default function NewAuctionWithPropertyForm() {
       return;
     }
 
+    await router.push("/admin/auctions");
     router.refresh();
-    router.push("/admin/auctions");
+  }
+
+  if (step === "images") {
+    return (
+      <div className="space-y-6">
+        <div className="card p-6 space-y-4">
+          <h2 className="text-sm font-semibold text-stone-900 border-b border-stone-100 pb-3">
+            Photos <span className="text-stone-400 font-normal">— optional</span>
+          </h2>
+          <ImageUploader
+            propertyId={createdPropertyId!}
+            existingImages={images}
+            onChange={setImages}
+          />
+        </div>
+
+        {error && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-sm px-3 py-2">
+            {error}
+          </p>
+        )}
+
+        <div className="flex justify-end">
+          <button onClick={handleCreateAuction} disabled={loading} className="btn-primary">
+            {loading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" /> Creating Auction…
+              </>
+            ) : (
+              <>
+                <Save size={16} /> List for Auction
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmitDetails} className="space-y-6">
       {/* Property details */}
       <div className="card p-6 space-y-4">
         <h2 className="text-sm font-semibold text-stone-900 border-b border-stone-100 pb-3">
@@ -223,11 +267,11 @@ export default function NewAuctionWithPropertyForm() {
         <button type="submit" disabled={loading} className="btn-primary">
           {loading ? (
             <>
-              <Loader2 size={16} className="animate-spin" /> Creating…
+              <Loader2 size={16} className="animate-spin" /> Saving…
             </>
           ) : (
             <>
-              <Save size={16} /> List Property for Auction
+              Next: Add Photos <ArrowRight size={16} />
             </>
           )}
         </button>

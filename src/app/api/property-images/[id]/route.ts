@@ -45,10 +45,7 @@ export async function DELETE(
     .eq("id", id);
 
   if (deleteErr) {
-    return NextResponse.json(
-      { error: `Delete failed: ${deleteErr.message}` },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to delete image" }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });
@@ -105,10 +102,7 @@ export async function PATCH(
     .single();
 
   if (error) {
-    return NextResponse.json(
-      { error: `Update failed: ${error.message}` },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to update image" }, { status: 500 });
   }
 
   return NextResponse.json(updated);

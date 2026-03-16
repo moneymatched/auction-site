@@ -81,10 +81,13 @@ export default function PropertyForm({ property }: PropertyFormProps) {
       }
       id = (data as Property).id;
       setPropertyId(id);
+      setLoading(false);
+      router.push(`/admin/properties/${id}`);
+      return;
     }
 
     setLoading(false);
-    router.push("/admin/properties");
+    router.refresh();
   }
 
   async function handleDelete() {

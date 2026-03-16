@@ -41,6 +41,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (new Date(payload.end_time as string) <= new Date(payload.start_time as string)) {
+    return NextResponse.json({ error: "end_time must be after start_time" }, { status: 400 });
+  }
+
+  if (payload.starting_bid <= 0) {
+    return NextResponse.json({ error: "starting_bid must be greater than 0" }, { status: 400 });
+  }
+
   const supabase = createSupabaseServiceClient();
   const { data, error } = await supabase
     .from("auctions")
@@ -49,7 +57,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to create auction" }, { status: 500 });
   }
 
   return NextResponse.json(data);

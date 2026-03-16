@@ -8,6 +8,7 @@ import { Loader2, Save, Info } from "lucide-react";
 interface AuctionFormProps {
   properties: Property[];
   auction?: Auction;
+  redirectTo?: string;
 }
 
 function toLocalDatetimeValue(iso: string): string {
@@ -20,7 +21,7 @@ function toISO(localDatetime: string): string {
   return new Date(localDatetime).toISOString();
 }
 
-export default function AuctionForm({ properties, auction }: AuctionFormProps) {
+export default function AuctionForm({ properties, auction, redirectTo }: AuctionFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -79,7 +80,8 @@ export default function AuctionForm({ properties, auction }: AuctionFormProps) {
       return;
     }
 
-    router.push("/admin/auctions");
+    router.push(redirectTo ?? "/admin/auctions");
+    router.refresh();
   }
 
   return (
