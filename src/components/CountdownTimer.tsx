@@ -19,7 +19,7 @@ export default function CountdownTimer({
   size = "md",
   showExtendedBanner = false,
 }: CountdownTimerProps) {
-  const [timeData, setTimeData] = useState(formatTimeRemaining(endTime));
+  const [timeData, setTimeData] = useState<ReturnType<typeof formatTimeRemaining> | null>(null);
   const [extendedMinutes, setExtendedMinutes] = useState<number | null>(null);
   const [prevEndTime, setPrevEndTime] = useState(endTime);
 
@@ -38,6 +38,9 @@ export default function CountdownTimer({
   }, [endTime, prevEndTime, showExtendedBanner]);
 
   useEffect(() => {
+    // Initialize on mount to avoid SSR/client hydration mismatch
+    setTimeData(formatTimeRemaining(endTime));
+
     if (status !== "live") return;
     const interval = setInterval(() => {
       const data = formatTimeRemaining(endTime);
@@ -74,12 +77,11 @@ export default function CountdownTimer({
     );
   }
 
-  const colorClass =
-    timeData.urgency === "critical"
-      ? "text-red-600"
-      : timeData.urgency === "warning"
-      ? "text-amber-600"
-      : "text-stone-900";
+  const colorClass = !timeData || timeData.urgency === "normal"
+    ? "text-stone-900"
+    : timeData.urgency === "critical"
+    ? "text-red-600"
+    : "text-amber-600";
 
   const sizeClass =
     size === "lg"
@@ -99,14 +101,14 @@ export default function CountdownTimer({
       <div className="flex items-center gap-2">
         <Clock
           size={size === "lg" ? 20 : size === "md" ? 16 : 14}
-          className={timeData.urgency !== "normal" ? colorClass : "text-stone-400"}
+          className={timeData && timeData.urgency !== "normal" ? colorClass : "text-stone-400"}
         />
         <span
           className={`font-mono tabular-nums font-medium ${colorClass} ${sizeClass} ${
-            timeData.urgency === "critical" ? "animate-pulse" : ""
+            timeData?.urgency === "critical" ? "animate-pulse" : ""
           }`}
         >
-          {timeData.display}
+          {timeData?.display ?? "—"}
         </span>
       </div>
     </div>
