@@ -60,6 +60,18 @@ export interface Bid {
   placed_at: string;
   ip_address: string | null;
   was_auto_extended: boolean;
+  is_proxy: boolean;
+}
+
+export interface ProxyBid {
+  id: string;
+  auction_id: string;
+  bidder_email: string;
+  bidder_name: string;
+  bidder_phone: string;
+  max_amount: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export type InvoiceStatus = "draft" | "sent" | "paid";

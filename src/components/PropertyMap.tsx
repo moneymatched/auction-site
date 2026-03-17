@@ -27,7 +27,7 @@ export default function PropertyMap({
   const [selected, setSelected] = useState<string | null>(null);
 
   const mappable = auctions.filter(
-    (a) => a.property?.lat && a.property?.lng
+    (a) => a.property?.lat && a.property?.lng && a.status !== "ended" && a.status !== "cancelled"
   );
 
   const center =

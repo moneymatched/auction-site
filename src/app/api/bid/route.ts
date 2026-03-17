@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase";
 import { getEffectiveAuctionStatus } from "@/lib/auction-status";
+import { resolveProxyBids } from "@/lib/proxy-bid";
 
 export async function POST(req: NextRequest) {
   const supabase = createSupabaseServiceClient();
@@ -112,6 +113,9 @@ export async function POST(req: NextRequest) {
   if (bidError) {
     return NextResponse.json({ error: "Failed to record bid" }, { status: 500 });
   }
+
+  // Let any competing proxy bids respond to this manual bid
+  await resolveProxyBids(supabase, auction_id, bidder_email.trim().toLowerCase());
 
   return NextResponse.json({
     success: true,
