@@ -34,7 +34,7 @@ export default async function HomePage() {
   return (
     <main>
       {/* Hero — extends behind nav via negative margin */}
-      <section className="relative bg-stone-900 text-white overflow-hidden min-h-[32rem] -mt-16 pt-16">
+      <section className="relative bg-stone-900 text-white overflow-hidden min-h-screen -mt-16 pt-16">
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{ backgroundImage: "url(/hero-bg.png)" }}
