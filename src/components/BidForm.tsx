@@ -300,7 +300,7 @@ function BidStep({ auction, bidder, onSuccess, onClose, onClearBidder }: BidStep
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               min={minBid}
-              step={auction.min_bid_increment}
+              step={mode === "proxy" ? 1 : auction.min_bid_increment}
               className="input-field pl-9"
               placeholder={minBid.toString()}
               required
