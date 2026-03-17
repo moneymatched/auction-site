@@ -141,6 +141,12 @@ export default async function HomePage() {
           <p className="text-xs text-stone-400">
             Payments handled offline. All sales subject to seller approval.
           </p>
+          <p className="text-xs text-stone-400">
+            Powered by{" "}
+            <a href="https://zgmad.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-stone-600 transition-colors">
+              ZGMAD
+            </a>
+          </p>
         </div>
       </footer>
     </main>
