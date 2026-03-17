@@ -195,6 +195,10 @@ function BidStep({ auction, bidder, onSuccess, onClose, onClearBidder }: BidStep
       setError(`Minimum ${mode === "proxy" ? "max bid" : "bid"} is ${formatCurrency(minBid)}`);
       return;
     }
+    if (mode === "standard" && Math.round(bidAmount - minBid) % Math.round(auction.min_bid_increment) !== 0) {
+      setError(`Bid must be in increments of ${formatCurrency(auction.min_bid_increment)} (e.g. ${formatCurrency(minBid)}, ${formatCurrency(minBid + auction.min_bid_increment)})`);
+      return;
+    }
 
     setLoading(true);
     try {
