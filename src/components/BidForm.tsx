@@ -169,8 +169,6 @@ function RegistrationStep({ onRegistered, onClose }: RegistrationStepProps) {
 
 // ─── Step 2: Place Bid ────────────────────────────────────────────────────────
 
-type BidMode = "standard" | "proxy";
-
 interface BidStepProps {
   auction: Auction;
   bidder: Bidder;
@@ -181,7 +179,6 @@ interface BidStepProps {
 
 function BidStep({ auction, bidder, onSuccess, onClose, onClearBidder }: BidStepProps) {
   const minBid = getMinimumNextBid(auction);
-  const [mode, setMode] = useState<BidMode>("standard");
   const [amount, setAmount] = useState(minBid.toString());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -192,24 +189,18 @@ function BidStep({ auction, bidder, onSuccess, onClose, onClearBidder }: BidStep
 
     const bidAmount = parseFloat(amount);
     if (isNaN(bidAmount) || bidAmount < minBid) {
-      setError(`Minimum ${mode === "proxy" ? "max bid" : "bid"} is ${formatCurrency(minBid)}`);
-      return;
-    }
-    if (mode === "standard" && Math.round(bidAmount - minBid) % Math.round(auction.min_bid_increment) !== 0) {
-      setError(`Bid must be in increments of ${formatCurrency(auction.min_bid_increment)} (e.g. ${formatCurrency(minBid)}, ${formatCurrency(minBid + auction.min_bid_increment)})`);
+      setError(`Minimum bid is ${formatCurrency(minBid)}`);
       return;
     }
 
     setLoading(true);
     try {
-      const endpoint = mode === "proxy" ? "/api/proxy-bid" : "/api/bid";
-      const bodyKey = mode === "proxy" ? "max_amount" : "amount";
-      const res = await fetch(endpoint, {
+      const res = await fetch("/api/proxy-bid", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           auction_id: auction.id,
-          [bodyKey]: bidAmount,
+          max_amount: bidAmount,
           bidder_name: `${bidder.first_name} ${bidder.last_name}`,
           bidder_email: bidder.email,
           bidder_phone: bidder.phone,
@@ -260,43 +251,13 @@ function BidStep({ auction, bidder, onSuccess, onClose, onClearBidder }: BidStep
           </button>
         </div>
 
-        {/* Bid mode toggle */}
-        <div className="flex bg-stone-100 rounded-sm p-1 gap-1">
-          <button
-            type="button"
-            onClick={() => setMode("standard")}
-            className={`flex-1 py-1.5 text-sm rounded-sm transition-colors ${
-              mode === "standard"
-                ? "bg-white text-stone-900 shadow-sm font-medium"
-                : "text-stone-500 hover:text-stone-700"
-            }`}
-          >
-            Place Bid
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("proxy")}
-            className={`flex-1 py-1.5 text-sm rounded-sm transition-colors ${
-              mode === "proxy"
-                ? "bg-white text-stone-900 shadow-sm font-medium"
-                : "text-stone-500 hover:text-stone-700"
-            }`}
-          >
-            Max Bid
-          </button>
-        </div>
-
-        {mode === "proxy" && (
-          <p className="text-xs text-stone-500 bg-stone-50 border border-stone-200 rounded-sm px-3 py-2 leading-relaxed">
-            Set the most you&apos;re willing to pay. We&apos;ll automatically bid on your behalf up to that amount — other bidders won&apos;t see your maximum.
-          </p>
-        )}
+        <p className="text-xs text-stone-500 bg-stone-50 border border-stone-200 rounded-sm px-3 py-2 leading-relaxed">
+          Enter the most you&apos;re willing to pay. We&apos;ll automatically bid on your behalf up to that amount — other bidders won&apos;t see your maximum.
+        </p>
 
         {/* Amount input */}
         <div>
-          <label className="label">
-            {mode === "proxy" ? "Maximum Bid Amount" : "Bid Amount"}
-          </label>
+          <label className="label">Maximum Bid Amount</label>
           <div className="relative">
             <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
             <input
@@ -327,9 +288,7 @@ function BidStep({ auction, bidder, onSuccess, onClose, onClearBidder }: BidStep
         <div className="pt-1 space-y-2">
           <button type="submit" disabled={loading} className="btn-primary w-full">
             {loading ? (
-              <><Loader2 size={16} className="animate-spin" /> {mode === "proxy" ? "Setting Max Bid…" : "Placing Bid…"}</>
-            ) : mode === "proxy" ? (
-              `Set Max Bid — ${isNaN(parseFloat(amount)) ? "—" : formatCurrency(parseFloat(amount))}`
+              <><Loader2 size={16} className="animate-spin" /> Placing Bid…</>
             ) : (
               `Place Bid — ${isNaN(parseFloat(amount)) ? "—" : formatCurrency(parseFloat(amount))}`
             )}
