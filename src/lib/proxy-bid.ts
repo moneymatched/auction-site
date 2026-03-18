@@ -52,11 +52,19 @@ export async function resolveProxyBids(
   let winningAmount: number;
 
   if (competing.max_amount > justBidMax) {
-    // Competing proxy outbids — they win at just above justBid's max
+    // Competing proxy outbids.
+    // Second price = max(justBidMax, next-highest proxy below competing).
+    // This handles 3+ proxy bidders correctly — e.g. A ($750k) beats both
+    // B ($550k proxy) and C ($600k proxy): A wins at $600,100, not $550,100.
+    const secondProxy = proxies.find(
+      (p) => p.bidder_email !== justBidEmail && p.bidder_email !== competing.bidder_email
+    );
+    const secondPrice = Math.max(justBidMax, secondProxy?.max_amount ?? 0);
     winner = competing;
-    winningAmount = Math.min(justBidMax + increment, competing.max_amount);
+    winningAmount = Math.min(secondPrice + increment, competing.max_amount);
   } else if (justBidMax > competing.max_amount) {
-    // justBid proxy wins — jump to just above competing's max
+    // justBid proxy wins — jump to just above competing's max.
+    // competing is already the highest other proxy, so this is the correct second price.
     if (!justBidProxy) return; // manual bidder wins, nothing to do
     winner = justBidProxy;
     winningAmount = Math.min(competing.max_amount + increment, justBidProxy.max_amount);
