@@ -195,6 +195,10 @@ function BidStep({ auction, bidder, onSuccess, onClose, onClearBidder }: BidStep
       setError(`Minimum ${mode === "proxy" ? "max bid" : "bid"} is ${formatCurrency(minBid)}`);
       return;
     }
+    if (mode === "standard" && Math.round(bidAmount - minBid) % Math.round(auction.min_bid_increment) !== 0) {
+      setError(`Bid must be in increments of ${formatCurrency(auction.min_bid_increment)} (e.g. ${formatCurrency(minBid)}, ${formatCurrency(minBid + auction.min_bid_increment)})`);
+      return;
+    }
 
     setLoading(true);
     try {
@@ -296,13 +300,15 @@ function BidStep({ auction, bidder, onSuccess, onClose, onClearBidder }: BidStep
           <div className="relative">
             <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
             <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              min={minBid}
-              step={auction.min_bid_increment}
+              type="text"
+              inputMode="numeric"
+              value={amount ? parseInt(amount).toLocaleString("en-US") : ""}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/[^\d]/g, "");
+                setAmount(raw);
+              }}
               className="input-field pl-9"
-              placeholder={minBid.toString()}
+              placeholder={minBid.toLocaleString("en-US")}
               required
               autoFocus
             />

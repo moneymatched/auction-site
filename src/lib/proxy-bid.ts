@@ -1,84 +1,106 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * After a bid is placed, check if any competing proxy bids can counter.
- * Loops until the auction is stable (no proxy bid can respond).
+ * After a bid is placed, resolve proxy bid competition in one pass by jumping
+ * directly to the equilibrium price rather than stepping one increment at a time.
  *
- * @param skipEmail - the email of the bidder who just bid (don't let them auto-counter themselves)
+ * Rules:
+ * - The proxy with the highest max wins.
+ * - The winning price is min(loser.max + increment, winner.max).
+ * - On a tie, the current top bidder (justBidEmail) wins — no action needed.
+ * - If justBidEmail has no proxy (manual bidder), they count as bidding at current_bid.
+ *
+ * @param justBidEmail - email of the person whose bid just landed
  */
 export async function resolveProxyBids(
   supabase: SupabaseClient,
   auctionId: string,
-  skipEmail: string
+  justBidEmail: string
 ): Promise<void> {
-  for (let i = 0; i < 20; i++) {
-    // Fetch latest auction state
-    const { data: auction } = await supabase
-      .from("auctions")
-      .select("*")
-      .eq("id", auctionId)
-      .single();
+  const { data: auction } = await supabase
+    .from("auctions")
+    .select("*")
+    .eq("id", auctionId)
+    .single();
 
-    if (!auction || new Date(auction.end_time) <= new Date()) break;
+  if (!auction || new Date(auction.end_time) <= new Date()) return;
 
-    const minNeeded =
-      auction.current_bid > 0
-        ? auction.current_bid + auction.min_bid_increment
-        : auction.starting_bid;
+  const increment = auction.min_bid_increment;
+  const currentBid = auction.current_bid;
+  const minNeeded = currentBid + increment;
 
-    // Find the highest proxy bid that can counter (excluding the current top bidder)
-    const { data: proxies } = await supabase
-      .from("proxy_bids")
-      .select("*")
-      .eq("auction_id", auctionId)
-      .neq("bidder_email", skipEmail.toLowerCase())
-      .gte("max_amount", minNeeded)
-      .order("max_amount", { ascending: false })
-      .limit(1);
+  // All proxy bids for this auction, highest max first
+  const { data: proxies } = await supabase
+    .from("proxy_bids")
+    .select("*")
+    .eq("auction_id", auctionId)
+    .order("max_amount", { ascending: false });
 
-    if (!proxies || proxies.length === 0) break;
+  if (!proxies || proxies.length === 0) return;
 
-    const proxy = proxies[0];
+  const justBidProxy = proxies.find((p) => p.bidder_email === justBidEmail);
+  const justBidMax = justBidProxy?.max_amount ?? currentBid;
 
-    // Auto-extend check
-    const secondsRemaining = Math.floor(
-      (new Date(auction.end_time).getTime() - Date.now()) / 1000
-    );
-    const shouldExtend =
-      secondsRemaining > 0 && secondsRemaining <= auction.auto_extend_threshold;
-    const newEndTime = shouldExtend
-      ? new Date(
-          new Date(auction.end_time).getTime() +
-            auction.auto_extend_seconds * 1000
-        ).toISOString()
-      : auction.end_time;
+  // Best competing proxy that can afford the next increment
+  const competing = proxies.find(
+    (p) => p.bidder_email !== justBidEmail && p.max_amount >= minNeeded
+  );
 
-    // Optimistic-lock update — bail if another bid snuck in
-    const { data: updated } = await supabase
-      .from("auctions")
-      .update({
-        current_bid: minNeeded,
-        bid_count: auction.bid_count + 1,
-        end_time: newEndTime,
-      })
-      .eq("id", auctionId)
-      .eq("current_bid", auction.current_bid)
-      .select()
-      .maybeSingle();
+  if (!competing) return;
 
-    if (!updated) break;
+  let winner: typeof competing;
+  let winningAmount: number;
 
-    await supabase.from("bids").insert({
-      auction_id: auctionId,
-      bidder_name: proxy.bidder_name,
-      bidder_email: proxy.bidder_email,
-      bidder_phone: proxy.bidder_phone,
-      amount: minNeeded,
-      was_auto_extended: shouldExtend,
-      is_proxy: true,
-    });
-
-    // Next iteration: skip this proxy's email so the loop looks for a counter from others
-    skipEmail = proxy.bidder_email;
+  if (competing.max_amount > justBidMax) {
+    // Competing proxy outbids — they win at just above justBid's max
+    winner = competing;
+    winningAmount = Math.min(justBidMax + increment, competing.max_amount);
+  } else if (justBidMax > competing.max_amount) {
+    // justBid proxy wins — jump to just above competing's max
+    if (!justBidProxy) return; // manual bidder wins, nothing to do
+    winner = justBidProxy;
+    winningAmount = Math.min(competing.max_amount + increment, justBidProxy.max_amount);
+  } else {
+    // Tie — current top bidder (justBidEmail) wins, no action needed
+    return;
   }
+
+  if (winningAmount <= currentBid) return;
+
+  // Auto-extend check
+  const secondsRemaining = Math.floor(
+    (new Date(auction.end_time).getTime() - Date.now()) / 1000
+  );
+  const shouldExtend =
+    secondsRemaining > 0 && secondsRemaining <= auction.auto_extend_threshold;
+  const newEndTime = shouldExtend
+    ? new Date(
+        new Date(auction.end_time).getTime() + auction.auto_extend_seconds * 1000
+      ).toISOString()
+    : auction.end_time;
+
+  // Optimistic-lock update — bail if a concurrent bid snuck in
+  const { data: updated } = await supabase
+    .from("auctions")
+    .update({
+      current_bid: winningAmount,
+      bid_count: auction.bid_count + 1,
+      end_time: newEndTime,
+    })
+    .eq("id", auctionId)
+    .eq("current_bid", currentBid)
+    .select()
+    .maybeSingle();
+
+  if (!updated) return;
+
+  await supabase.from("bids").insert({
+    auction_id: auctionId,
+    bidder_name: winner.bidder_name,
+    bidder_email: winner.bidder_email,
+    bidder_phone: winner.bidder_phone,
+    amount: winningAmount,
+    was_auto_extended: shouldExtend,
+    is_proxy: true,
+  });
 }
