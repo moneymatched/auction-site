@@ -26,6 +26,7 @@ function clearStoredBidder() {
 
 interface BidFormProps {
   auction: Auction;
+  topBidderEmail?: string;
   onSuccess: () => void;
   onClose: () => void;
 }
@@ -172,12 +173,15 @@ function RegistrationStep({ onRegistered, onClose }: RegistrationStepProps) {
 interface BidStepProps {
   auction: Auction;
   bidder: Bidder;
+  topBidderEmail?: string;
   onSuccess: () => void;
   onClose: () => void;
   onClearBidder: () => void;
 }
 
-function BidStep({ auction, bidder, onSuccess, onClose, onClearBidder }: BidStepProps) {
+function BidStep({ auction, bidder, topBidderEmail, onSuccess, onClose, onClearBidder }: BidStepProps) {
+  const isAlreadyLeading =
+    !!topBidderEmail && topBidderEmail.toLowerCase() === bidder.email.toLowerCase();
   const minBid = getMinimumNextBid(auction);
   const [amount, setAmount] = useState(minBid.toString());
   const [loading, setLoading] = useState(false);
@@ -285,8 +289,14 @@ function BidStep({ auction, bidder, onSuccess, onClose, onClearBidder }: BidStep
           </p>
         )}
 
+        {isAlreadyLeading && (
+          <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-sm px-3 py-2 text-center">
+            You&apos;re already the highest bidder. Enter a higher maximum to raise your limit.
+          </p>
+        )}
+
         <div className="pt-1 space-y-2">
-          <button type="submit" disabled={loading} className="btn-primary w-full">
+          <button type="submit" disabled={loading || isAlreadyLeading} className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed">
             {loading ? (
               <><Loader2 size={16} className="animate-spin" /> Placing Bid…</>
             ) : (
@@ -304,7 +314,7 @@ function BidStep({ auction, bidder, onSuccess, onClose, onClearBidder }: BidStep
 
 // ─── Main BidForm ─────────────────────────────────────────────────────────────
 
-export default function BidForm({ auction, onSuccess, onClose }: BidFormProps) {
+export default function BidForm({ auction, topBidderEmail, onSuccess, onClose }: BidFormProps) {
   const [bidder, setBidder] = useState<Bidder | null>(null);
 
   useEffect(() => {
@@ -323,6 +333,7 @@ export default function BidForm({ auction, onSuccess, onClose }: BidFormProps) {
           <BidStep
             auction={auction}
             bidder={bidder}
+            topBidderEmail={topBidderEmail}
             onSuccess={onSuccess}
             onClose={onClose}
             onClearBidder={handleClearBidder}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase";
 import { getEffectiveAuctionStatus } from "@/lib/auction-status";
 import { resolveProxyBids } from "@/lib/proxy-bid";
+import { formatCurrency } from "@/lib/auction-utils";
 
 export async function POST(req: NextRequest) {
   const supabase = createSupabaseServiceClient();
@@ -70,6 +71,21 @@ export async function POST(req: NextRequest) {
   }
 
   const normalizedEmail = bidder_email.trim().toLowerCase();
+
+  // Reject if the bidder is trying to lower their existing max
+  const { data: existingProxy } = await supabase
+    .from("proxy_bids")
+    .select("max_amount")
+    .eq("auction_id", auction_id)
+    .eq("bidder_email", normalizedEmail)
+    .maybeSingle();
+
+  if (existingProxy && max_amount < existingProxy.max_amount) {
+    return NextResponse.json(
+      { error: `Your current max bid is ${formatCurrency(existingProxy.max_amount)}. You cannot lower it.` },
+      { status: 409 }
+    );
+  }
 
   // Upsert proxy bid (one per bidder per auction — update if they raise their max)
   const { error: upsertError } = await supabase.from("proxy_bids").upsert(

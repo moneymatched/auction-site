@@ -225,6 +225,7 @@ export default function AuctionRoom({ initialAuction, initialBids }: AuctionRoom
       {showBidForm && (
         <BidForm
           auction={auction}
+          topBidderEmail={bids.find((b) => b.amount === auction.current_bid)?.bidder_email}
           onSuccess={handleBidSuccess}
           onClose={() => setShowBidForm(false)}
         />
