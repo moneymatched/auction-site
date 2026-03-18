@@ -239,7 +239,7 @@ function BidStep({ auction, bidder, topBidderEmail, onSuccess, onClose }: BidSte
           <div className="flex items-center gap-2 text-sm text-stone-700">
             <UserCheck size={15} className="text-emerald-600 shrink-0" />
             <span>
-              Bidding as <strong>{bidder.first_name} {bidder.last_name}</strong>
+              Bidding as <strong>Me</strong>
             </span>
           </div>
         </div>
