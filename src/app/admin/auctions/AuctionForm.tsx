@@ -163,16 +163,18 @@ export default function AuctionForm({ properties, auction, redirectTo }: Auction
             />
           </div>
           <div>
-            <label className="label">Min. Bid Increment ($) *</label>
-            <input
-              type="number"
+            <label className="label">Bid Increment *</label>
+            <select
               value={form.min_bid_increment}
               onChange={(e) => setField("min_bid_increment", e.target.value)}
               className="input-field"
-              min="1"
-              step="1"
               required
-            />
+            >
+              <option value="100">$100</option>
+              <option value="250">$250</option>
+              <option value="1000">$1,000</option>
+              <option value="1500">$1,500</option>
+            </select>
           </div>
         </div>
 
