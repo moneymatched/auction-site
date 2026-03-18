@@ -91,7 +91,67 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Immediately place a bid at the minimum needed on behalf of this bidder
+  // If this bidder is already the current leader, just raising their max —
+  // no new bid needed. The proxy will fire automatically if someone outbids them.
+  const { data: topBid } = await supabase
+    .from("bids")
+    .select("bidder_email")
+    .eq("auction_id", auction_id)
+    .order("amount", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (topBid?.bidder_email === normalizedEmail) {
+    return NextResponse.json({
+      success: true,
+      auto_extended: false,
+      new_end_time: auction.end_time,
+    });
+  }
+
+  // Fetch all proxies to determine who wins and at what price
+  const { data: allProxies } = await supabase
+    .from("proxy_bids")
+    .select("*")
+    .eq("auction_id", auction_id)
+    .order("max_amount", { ascending: false });
+
+  // Highest competing proxy (not this bidder) that can afford the next bid
+  const competing = allProxies?.find(
+    (p) => p.bidder_email !== normalizedEmail && p.max_amount >= minNeeded
+  );
+
+  // Determine who places the first bid and at what amount:
+  // - No competition → this bidder bids at minimum
+  // - This bidder's max wins → jump straight to equilibrium (skip the minNeeded step)
+  // - This bidder's max loses or ties → bid at minimum, then let resolveProxyBids counter
+  let bidAmount: number;
+  let bidEmail: string;
+  let bidName: string;
+  let bidPhone: string;
+  let needsResolution = false;
+
+  if (!competing) {
+    bidAmount = minNeeded;
+    bidEmail = normalizedEmail;
+    bidName = bidder_name.trim();
+    bidPhone = bidder_phone.trim();
+  } else if (max_amount > competing.max_amount) {
+    // This proxy wins — place one bid at the equilibrium price
+    bidAmount = Math.min(competing.max_amount + auction.min_bid_increment, max_amount);
+    bidEmail = normalizedEmail;
+    bidName = bidder_name.trim();
+    bidPhone = bidder_phone.trim();
+  } else {
+    // This proxy loses or ties — enter at minimum, competing proxy will counter
+    bidAmount = minNeeded;
+    bidEmail = normalizedEmail;
+    bidName = bidder_name.trim();
+    bidPhone = bidder_phone.trim();
+    needsResolution = true;
+  }
+
+  // Auto-extend check
   const secondsRemaining = Math.floor(
     (new Date(auction.end_time).getTime() - Date.now()) / 1000
   );
@@ -107,7 +167,7 @@ export async function POST(req: NextRequest) {
   const { data: updatedAuction, error: updateError } = await supabase
     .from("auctions")
     .update({
-      current_bid: minNeeded,
+      current_bid: bidAmount,
       bid_count: auction.bid_count + 1,
       end_time: newEndTime,
     })
@@ -133,17 +193,19 @@ export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
   await supabase.from("bids").insert({
     auction_id,
-    bidder_name: bidder_name.trim(),
-    bidder_email: normalizedEmail,
-    bidder_phone: bidder_phone.trim(),
-    amount: minNeeded,
+    bidder_name: bidName,
+    bidder_email: bidEmail,
+    bidder_phone: bidPhone,
+    amount: bidAmount,
     ip_address: ip,
     was_auto_extended: shouldExtend,
     is_proxy: true,
   });
 
-  // Let any competing proxy bids respond
-  await resolveProxyBids(supabase, auction_id, normalizedEmail);
+  // Only resolve if this proxy lost — let the competing proxy counter
+  if (needsResolution) {
+    await resolveProxyBids(supabase, auction_id, normalizedEmail);
+  }
 
   return NextResponse.json({
     success: true,
