@@ -10,8 +10,10 @@ import CountdownTimer from "@/components/CountdownTimer";
 import BidForm from "@/components/BidForm";
 import BidHistory from "@/components/BidHistory";
 import PropertyMap from "@/components/PropertyMap";
-import { MapPin, Gavel, ChevronRight, CheckCircle2, ArrowLeft } from "lucide-react";
+import { MapPin, Gavel, ChevronRight, CheckCircle2, ArrowLeft, Trophy, TrendingUp } from "lucide-react";
 import Link from "next/link";
+
+const BIDDER_KEY = "auction_bidder";
 
 interface AuctionRoomProps {
   initialAuction: Auction;
@@ -23,6 +25,18 @@ export default function AuctionRoom({ initialAuction, initialBids }: AuctionRoom
   const [bids, setBids] = useState<Bid[]>(initialBids);
   const [showBidForm, setShowBidForm] = useState(false);
   const [bidSuccess, setBidSuccess] = useState(false);
+  const [storedEmail, setStoredEmail] = useState<string | null>(null);
+
+  // Load the stored bidder's email from localStorage (client-only)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(BIDDER_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setStoredEmail(parsed?.email?.toLowerCase() ?? null);
+      }
+    } catch {}
+  }, []);
 
   const property = auction.property!;
   const effectiveStatus = getEffectiveAuctionStatus(auction);
@@ -61,6 +75,12 @@ export default function AuctionRoom({ initialAuction, initialBids }: AuctionRoom
   }, []);
 
   const canBid = effectiveStatus === "live" && new Date(auction.end_time) > new Date();
+
+  // Bidder status banner logic
+  const topBidderEmail = bids.find((b) => b.amount === auction.current_bid)?.bidder_email?.toLowerCase();
+  const hasUserBid = storedEmail ? bids.some((b) => b.bidder_email?.toLowerCase() === storedEmail) : false;
+  const isLeading = !!storedEmail && storedEmail === topBidderEmail;
+  const isOutbid = hasUserBid && !isLeading;
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -175,11 +195,23 @@ export default function AuctionRoom({ initialAuction, initialBids }: AuctionRoom
                 />
               </div>
 
-              {/* Bid success */}
-              {bidSuccess && (
+              {/* Bidder status banners */}
+              {isLeading && (
+                <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-sm text-emerald-700 text-sm mb-4">
+                  <Trophy size={15} className="shrink-0" />
+                  <span className="font-medium">You&apos;re the highest bidder!</span>
+                </div>
+              )}
+              {isOutbid && (
+                <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-sm text-amber-700 text-sm mb-4">
+                  <TrendingUp size={15} className="shrink-0" />
+                  <span className="font-medium">You&apos;ve been outbid. Raise your bid to take the lead.</span>
+                </div>
+              )}
+              {bidSuccess && !isLeading && (
                 <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-sm text-emerald-700 text-sm mb-4">
                   <CheckCircle2 size={16} />
-                  <span>You&apos;re the highest bidder!</span>
+                  <span>Bid placed!</span>
                 </div>
               )}
 
@@ -225,7 +257,7 @@ export default function AuctionRoom({ initialAuction, initialBids }: AuctionRoom
       {showBidForm && (
         <BidForm
           auction={auction}
-          topBidderEmail={bids.find((b) => b.amount === auction.current_bid)?.bidder_email}
+          topBidderEmail={topBidderEmail}
           onSuccess={handleBidSuccess}
           onClose={() => setShowBidForm(false)}
         />
