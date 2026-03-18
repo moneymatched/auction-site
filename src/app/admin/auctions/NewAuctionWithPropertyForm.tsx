@@ -37,6 +37,7 @@ export default function NewAuctionWithPropertyForm() {
     start_time: toLocalDatetimeValue(tomorrow),
     end_time: toLocalDatetimeValue(dayAfter),
     starting_bid: "1000",
+    min_bid_increment: "100",
   });
 
   const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({
@@ -101,7 +102,7 @@ export default function NewAuctionWithPropertyForm() {
           start_time: new Date(form.start_time).toISOString(),
           end_time: new Date(form.end_time).toISOString(),
           starting_bid: parseFloat(form.starting_bid) || 1000,
-          min_bid_increment: 100,
+          min_bid_increment: parseFloat(form.min_bid_increment) || 100,
           auto_extend_seconds: 300,
           auto_extend_threshold: 300,
         }),
@@ -293,17 +294,33 @@ export default function NewAuctionWithPropertyForm() {
           </div>
         </div>
 
-        <div>
-          <label className="label">Starting Bid ($) *</label>
-          <input
-            type="number"
-            value={form.starting_bid}
-            onChange={(e) => setField("starting_bid", e.target.value)}
-            className="input-field"
-            min="0"
-            step="1"
-            required
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Starting Bid ($) *</label>
+            <input
+              type="number"
+              value={form.starting_bid}
+              onChange={(e) => setField("starting_bid", e.target.value)}
+              className="input-field"
+              min="0"
+              step="1"
+              required
+            />
+          </div>
+          <div>
+            <label className="label">Bid Increment *</label>
+            <select
+              value={form.min_bid_increment}
+              onChange={(e) => setField("min_bid_increment", e.target.value)}
+              className="input-field"
+              required
+            >
+              <option value="100">$100</option>
+              <option value="250">$250</option>
+              <option value="1000">$1,000</option>
+              <option value="1500">$1,500</option>
+            </select>
+          </div>
         </div>
       </div>
 
