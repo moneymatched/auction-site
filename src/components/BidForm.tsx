@@ -280,12 +280,12 @@ function BidStep({ auction, bidder, topBidderEmail, onSuccess, onClose }: BidSte
 
         {isAlreadyLeading && (
           <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-sm px-3 py-2 text-center">
-            You&apos;re already the highest bidder. Enter a higher maximum to raise your limit.
+            You&apos;re currently the highest bidder. You can raise your maximum to protect your lead.
           </p>
         )}
 
         <div className="pt-1 space-y-2">
-          <button type="submit" disabled={loading || isAlreadyLeading} className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed">
+          <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed">
             {loading ? (
               <><Loader2 size={16} className="animate-spin" /> Placing Bid…</>
             ) : (
