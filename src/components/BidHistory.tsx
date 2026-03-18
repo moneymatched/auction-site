@@ -9,20 +9,9 @@ interface BidHistoryProps {
   currentUserEmail?: string | null;
 }
 
-function maskBidder(name: string | null, email: string, isMe: boolean): string {
+function displayBidder(email: string, isMe: boolean): string {
   if (isMe) return "Me";
-  if (name && name.trim()) {
-    const parts = name.trim().split(" ");
-    return parts
-      .map((part, i) =>
-        i === 0
-          ? part.charAt(0).toUpperCase() + "*".repeat(Math.max(part.length - 1, 1))
-          : part.charAt(0).toUpperCase() + "."
-      )
-      .join(" ");
-  }
-  const prefix = email.split("@")[0] ?? "?";
-  return prefix.charAt(0).toUpperCase() + "*".repeat(Math.max(prefix.length - 1, 1));
+  return email ?? "—";
 }
 
 function timeAgo(dateStr: string): string {
@@ -53,7 +42,7 @@ export default function BidHistory({ bids, currentUserEmail }: BidHistoryProps) 
           <div className="flex items-center gap-3">
             {(() => {
               const isMe = !!currentUserEmail && bid.bidder_email?.toLowerCase() === currentUserEmail;
-              const label = maskBidder(bid.bidder_name, bid.bidder_email, isMe);
+              const label = displayBidder(bid.bidder_email, isMe);
               return (
                 <>
                   <div
