@@ -52,50 +52,23 @@ export default function CoordinatePicker({ lat, lng, onChange }: CoordinatePicke
         </Map>
       </APIProvider>
 
-      {marker && (
-        <p className="text-xs text-stone-500 font-mono">
-          {marker.lat.toFixed(6)}, {marker.lng.toFixed(6)}
-        </p>
-      )}
-
-      {/* Manual entry fallback */}
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <label className="label">Latitude</label>
-          <input
-            type="number"
-            step="0.000001"
-            value={marker?.lat ?? ""}
-            onChange={(e) => {
-              const newLat = parseFloat(e.target.value);
-              if (!isNaN(newLat)) {
-                const newMarker = { lat: newLat, lng: marker?.lng ?? 0 };
-                setMarker(newMarker);
-                onChange(newMarker.lat, newMarker.lng);
-              }
-            }}
-            className="input-field font-mono text-sm"
-            placeholder="39.123456"
-          />
-        </div>
-        <div className="flex-1">
-          <label className="label">Longitude</label>
-          <input
-            type="number"
-            step="0.000001"
-            value={marker?.lng ?? ""}
-            onChange={(e) => {
-              const newLng = parseFloat(e.target.value);
-              if (!isNaN(newLng)) {
-                const newMarker = { lat: marker?.lat ?? 0, lng: newLng };
-                setMarker(newMarker);
-                onChange(newMarker.lat, newMarker.lng);
-              }
-            }}
-            className="input-field font-mono text-sm"
-            placeholder="-98.654321"
-          />
-        </div>
+      {/* Manual entry / coordinates display */}
+      <div>
+        <label className="label">Coordinates</label>
+        <input
+          type="text"
+          value={marker ? `${marker.lat.toFixed(6)}, ${marker.lng.toFixed(6)}` : ""}
+          onChange={(e) => {
+            const parts = e.target.value.split(",").map((s) => parseFloat(s.trim()));
+            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+              const newMarker = { lat: parts[0], lng: parts[1] };
+              setMarker(newMarker);
+              onChange(newMarker.lat, newMarker.lng);
+            }
+          }}
+          className="input-field font-mono text-sm"
+          placeholder="39.123456, -98.654321"
+        />
       </div>
     </div>
   );
