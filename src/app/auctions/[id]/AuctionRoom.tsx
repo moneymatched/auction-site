@@ -247,7 +247,7 @@ export default function AuctionRoom({ initialAuction, initialBids }: AuctionRoom
                   <span className="ml-2 text-stone-400 font-normal">({bids.length})</span>
                 )}
               </h2>
-              <BidHistory bids={bids} />
+              <BidHistory bids={bids} currentUserEmail={storedEmail} />
             </div>
           </div>
         </div>

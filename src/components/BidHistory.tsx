@@ -6,9 +6,11 @@ import { Clock } from "lucide-react";
 
 interface BidHistoryProps {
   bids: Bid[];
+  currentUserEmail?: string | null;
 }
 
-function maskBidder(name: string | null, email: string): string {
+function maskBidder(name: string | null, email: string, isMe: boolean): string {
+  if (isMe) return "Me";
   if (name && name.trim()) {
     const parts = name.trim().split(" ");
     return parts
@@ -30,7 +32,7 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(diff / 3600)}h ago`;
 }
 
-export default function BidHistory({ bids }: BidHistoryProps) {
+export default function BidHistory({ bids, currentUserEmail }: BidHistoryProps) {
   if (bids.length === 0) {
     return (
       <div className="py-8 text-center text-stone-400 text-sm">
@@ -49,28 +51,36 @@ export default function BidHistory({ bids }: BidHistoryProps) {
           }`}
         >
           <div className="flex items-center gap-3">
-            <div
-              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${
-                idx === 0
-                  ? "bg-emerald-600 text-white"
-                  : "bg-stone-100 text-stone-500"
-              }`}
-            >
-              {maskBidder(bid.bidder_name, bid.bidder_email).charAt(0)}
-            </div>
-            <div>
-              <p className={`text-sm font-medium ${idx === 0 ? "text-emerald-700" : "text-stone-700"}`}>
-                {maskBidder(bid.bidder_name, bid.bidder_email)}
-                {idx === 0 && <span className="ml-2 text-xs font-normal text-emerald-600">Winning</span>}
-              </p>
-              <div className="flex items-center gap-1 text-xs text-stone-400">
-                <Clock size={11} />
-                <span>{timeAgo(bid.placed_at)}</span>
-                {bid.was_auto_extended && (
-                  <span className="ml-1 text-amber-600">· Extended timer</span>
-                )}
-              </div>
-            </div>
+            {(() => {
+              const isMe = !!currentUserEmail && bid.bidder_email?.toLowerCase() === currentUserEmail;
+              const label = maskBidder(bid.bidder_name, bid.bidder_email, isMe);
+              return (
+                <>
+                  <div
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${
+                      idx === 0
+                        ? "bg-emerald-600 text-white"
+                        : "bg-stone-100 text-stone-500"
+                    }`}
+                  >
+                    {label.charAt(0)}
+                  </div>
+                  <div>
+                    <p className={`text-sm font-medium ${idx === 0 ? "text-emerald-700" : "text-stone-700"}`}>
+                      {label}
+                      {idx === 0 && <span className="ml-2 text-xs font-normal text-emerald-600">Winning</span>}
+                    </p>
+                    <div className="flex items-center gap-1 text-xs text-stone-400">
+                      <Clock size={11} />
+                      <span>{timeAgo(bid.placed_at)}</span>
+                      {bid.was_auto_extended && (
+                        <span className="ml-1 text-amber-600">· Extended timer</span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
           <span className={`text-sm font-semibold ${idx === 0 ? "text-emerald-700" : "text-stone-700"}`}>
             {formatCurrency(bid.amount)}
