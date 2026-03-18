@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     .eq("bidder_email", normalizedEmail)
     .maybeSingle();
 
-  if (existingProxy && max_amount <= existingProxy.max_amount) {
+  if (existingProxy && max_amount < existingProxy.max_amount) {
     return NextResponse.json(
       { error: `Your current max bid is ${formatCurrency(existingProxy.max_amount)}. You cannot lower it.` },
       { status: 409 }
