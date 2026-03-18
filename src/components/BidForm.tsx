@@ -20,9 +20,6 @@ function storeBidder(bidder: Bidder) {
   localStorage.setItem(BIDDER_KEY, JSON.stringify(bidder));
 }
 
-function clearStoredBidder() {
-  localStorage.removeItem(BIDDER_KEY);
-}
 
 interface BidFormProps {
   auction: Auction;
@@ -176,10 +173,9 @@ interface BidStepProps {
   topBidderEmail?: string;
   onSuccess: () => void;
   onClose: () => void;
-  onClearBidder: () => void;
 }
 
-function BidStep({ auction, bidder, topBidderEmail, onSuccess, onClose, onClearBidder }: BidStepProps) {
+function BidStep({ auction, bidder, topBidderEmail, onSuccess, onClose }: BidStepProps) {
   const isAlreadyLeading =
     !!topBidderEmail && topBidderEmail.toLowerCase() === bidder.email.toLowerCase();
   const minBid = getMinimumNextBid(auction);
@@ -246,13 +242,6 @@ function BidStep({ auction, bidder, topBidderEmail, onSuccess, onClose, onClearB
               Bidding as <strong>{bidder.first_name} {bidder.last_name}</strong>
             </span>
           </div>
-          <button
-            type="button"
-            onClick={onClearBidder}
-            className="text-xs text-stone-400 hover:text-stone-600 transition-colors underline"
-          >
-            Not you?
-          </button>
         </div>
 
         <p className="text-xs text-stone-500 bg-stone-50 border border-stone-200 rounded-sm px-3 py-2 leading-relaxed">
@@ -321,11 +310,6 @@ export default function BidForm({ auction, topBidderEmail, onSuccess, onClose }:
     setBidder(loadStoredBidder());
   }, []);
 
-  function handleClearBidder() {
-    clearStoredBidder();
-    setBidder(null);
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="w-full max-w-md bg-white rounded-sm shadow-2xl animate-slide-up">
@@ -336,7 +320,6 @@ export default function BidForm({ auction, topBidderEmail, onSuccess, onClose }:
             topBidderEmail={topBidderEmail}
             onSuccess={onSuccess}
             onClose={onClose}
-            onClearBidder={handleClearBidder}
           />
         ) : (
           <RegistrationStep
