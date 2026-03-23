@@ -27,7 +27,6 @@ export async function resolveProxyBids(
 
   const increment = auction.min_bid_increment;
   const currentBid = auction.current_bid;
-  const minNeeded = currentBid > 0 ? currentBid + increment : auction.starting_bid;
 
   // All proxy bids for this auction, highest max first
   const { data: proxies } = await supabase
