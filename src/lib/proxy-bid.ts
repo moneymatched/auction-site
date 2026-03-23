@@ -41,10 +41,10 @@ export async function resolveProxyBids(
   const justBidProxy = proxies.find((p) => p.bidder_email === justBidEmail);
   const justBidMax = justBidProxy?.max_amount ?? currentBid;
 
-  // Best competing proxy that can afford the next increment
-  const competing = proxies.find(
-    (p) => p.bidder_email !== justBidEmail && p.max_amount >= minNeeded
-  );
+  // Highest other proxy (sorted by max_amount desc). Do not require max >= minNeeded:
+  // when both ceilings equal M and current_bid is below M but current_bid + increment > M,
+  // nobody can pay minNeeded yet the price must still jump to M.
+  const competing = proxies.find((p) => p.bidder_email !== justBidEmail);
 
   if (!competing) return;
 

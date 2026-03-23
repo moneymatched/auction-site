@@ -63,14 +63,37 @@ export async function POST(req: NextRequest) {
       ? auction.current_bid + auction.min_bid_increment
       : auction.starting_bid;
 
-  if (max_amount < minNeeded) {
+  const normalizedEmail = bidder_email.trim().toLowerCase();
+
+  const { data: othersForFloor } = await supabase
+    .from("proxy_bids")
+    .select("max_amount")
+    .eq("auction_id", auction_id)
+    .neq("bidder_email", normalizedEmail);
+
+  const topOtherMax =
+    othersForFloor && othersForFloor.length > 0
+      ? Math.max(...othersForFloor.map((p) => p.max_amount))
+      : 0;
+
+  const canMatchLeaderCeiling =
+    topOtherMax > 0 && max_amount >= topOtherMax;
+
+  if (auction.current_bid > 0 && max_amount < auction.current_bid) {
+    return NextResponse.json(
+      {
+        error: `Max bid must be at least the current bid (${formatCurrency(auction.current_bid)})`,
+      },
+      { status: 409 }
+    );
+  }
+
+  if (max_amount < minNeeded && !canMatchLeaderCeiling) {
     return NextResponse.json(
       { error: `Max bid must be at least ${minNeeded.toLocaleString()}` },
       { status: 409 }
     );
   }
-
-  const normalizedEmail = bidder_email.trim().toLowerCase();
 
   // Reject if the bidder is trying to lower their existing max
   const { data: existingProxy } = await supabase
@@ -132,20 +155,22 @@ export async function POST(req: NextRequest) {
     .eq("auction_id", auction_id)
     .order("max_amount", { ascending: false });
 
-  // Highest competing proxy (not this bidder) that can afford the next bid
+  // Highest other proxy (same ordering as resolveProxyBids — max_amount desc)
   const competing = allProxies?.find(
-    (p) => p.bidder_email !== normalizedEmail && p.max_amount >= minNeeded
+    (p) => p.bidder_email !== normalizedEmail
   );
 
   // Determine who places the first bid and at what amount:
   // - No competition → this bidder bids at minimum
   // - This bidder's max wins → jump straight to equilibrium (skip the minNeeded step)
   // - This bidder's max loses or ties → bid at minimum, then let resolveProxyBids counter
+  // - Tie at shared max when current_bid + increment exceeds that max → resolve only (no illegal bid)
   let bidAmount: number;
   let bidEmail: string;
   let bidName: string;
   let bidPhone: string;
   let needsResolution = false;
+  let resolveOnly = false;
 
   if (!competing) {
     bidAmount = minNeeded;
@@ -158,13 +183,27 @@ export async function POST(req: NextRequest) {
     bidEmail = normalizedEmail;
     bidName = bidder_name.trim();
     bidPhone = bidder_phone.trim();
-  } else {
-    // This proxy loses or ties — enter at minimum, competing proxy will counter
+  } else if (max_amount === competing.max_amount) {
+    // Tie — incumbent (competing) wins at the shared max directly; no resolveProxyBids needed
+    bidAmount = competing.max_amount;
+    bidEmail = competing.bidder_email;
+    bidName = competing.bidder_name;
+    bidPhone = competing.bidder_phone;
+  } else if (max_amount >= minNeeded) {
+    // This proxy loses — enter at minimum, then resolveProxyBids counters
     bidAmount = minNeeded;
     bidEmail = normalizedEmail;
     bidName = bidder_name.trim();
     bidPhone = bidder_phone.trim();
     needsResolution = true;
+  } else {
+    // max_amount matches leader ceiling but is below minNeeded — cannot place minNeeded bid
+    resolveOnly = true;
+    needsResolution = true;
+    bidAmount = minNeeded; // unused when resolveOnly; satisfies definite assignment
+    bidEmail = normalizedEmail;
+    bidName = bidder_name.trim();
+    bidPhone = bidder_phone.trim();
   }
 
   // Auto-extend check
@@ -180,52 +219,69 @@ export async function POST(req: NextRequest) {
       ).toISOString()
     : auction.end_time;
 
-  const { data: updatedAuction, error: updateError } = await supabase
-    .from("auctions")
-    .update({
-      current_bid: bidAmount,
-      bid_count: auction.bid_count + 1,
-      end_time: newEndTime,
-    })
-    .eq("id", auction_id)
-    .eq("current_bid", auction.current_bid)
-    .select()
-    .maybeSingle();
+  let updatedAuction = auction;
 
-  if (updateError) {
-    return NextResponse.json(
-      { error: "Failed to update auction" },
-      { status: 500 }
-    );
+  if (!resolveOnly) {
+    const { data: updated, error: updateError } = await supabase
+      .from("auctions")
+      .update({
+        current_bid: bidAmount,
+        bid_count: auction.bid_count + 1,
+        end_time: newEndTime,
+      })
+      .eq("id", auction_id)
+      .eq("current_bid", auction.current_bid)
+      .select()
+      .maybeSingle();
+
+    if (updateError) {
+      return NextResponse.json(
+        { error: "Failed to update auction" },
+        { status: 500 }
+      );
+    }
+
+    if (!updated) {
+      return NextResponse.json(
+        { error: "A bid was just placed. Please refresh and try again." },
+        { status: 409 }
+      );
+    }
+
+    updatedAuction = updated;
+
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+    await supabase.from("bids").insert({
+      auction_id,
+      bidder_name: bidName,
+      bidder_email: bidEmail,
+      bidder_phone: bidPhone,
+      amount: bidAmount,
+      ip_address: ip,
+      was_auto_extended: shouldExtend,
+      is_proxy: true,
+    });
   }
-
-  if (!updatedAuction) {
-    return NextResponse.json(
-      { error: "A bid was just placed. Please refresh and try again." },
-      { status: 409 }
-    );
-  }
-
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
-  await supabase.from("bids").insert({
-    auction_id,
-    bidder_name: bidName,
-    bidder_email: bidEmail,
-    bidder_phone: bidPhone,
-    amount: bidAmount,
-    ip_address: ip,
-    was_auto_extended: shouldExtend,
-    is_proxy: true,
-  });
 
   // Only resolve if this proxy lost — let the competing proxy counter
   if (needsResolution) {
     await resolveProxyBids(supabase, auction_id, normalizedEmail);
   }
 
+  const { data: finalAuction } = await supabase
+    .from("auctions")
+    .select("end_time")
+    .eq("id", auction_id)
+    .single();
+
+  const endTime = finalAuction?.end_time ?? updatedAuction.end_time;
+  const autoExtended =
+    Boolean(finalAuction) &&
+    new Date(endTime).getTime() !== new Date(auction.end_time).getTime();
+
   return NextResponse.json({
     success: true,
-    auto_extended: shouldExtend,
-    new_end_time: newEndTime,
+    auto_extended: autoExtended,
+    new_end_time: endTime,
   });
 }
