@@ -2,12 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { Menu, X, LogIn } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Menu, X, User } from "lucide-react";
 
 export default function Nav() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [hasAccount, setHasAccount] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("auction_bidder");
+      if (raw) {
+        const b = JSON.parse(raw);
+        if (b?.email_verified_at) setHasAccount(true);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const isAdmin = pathname?.startsWith("/admin");
   if (isAdmin) return null; // Admin has its own layout
@@ -52,15 +63,15 @@ export default function Nav() {
               </Link>
             ))}
             <Link
-              href="/admin"
-              className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-sm transition-colors ml-2 ${
-                isHome 
-                  ? "bg-white/10 text-white hover:bg-white/20 border border-white/20" 
-                  : "bg-stone-900 text-white hover:bg-stone-800"
+              href="/dashboard"
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-sm ml-2 ${
+                isHome
+                  ? "text-white border border-white/30 hover:bg-white/10"
+                  : "text-stone-700 border border-stone-300 hover:bg-stone-100"
               }`}
             >
-              <LogIn size={14} />
-              Login
+              <User size={14} />
+              {hasAccount ? "My Account" : "Sign In"}
             </Link>
           </nav>
 
@@ -97,14 +108,14 @@ export default function Nav() {
               </Link>
             ))}
             <Link
-              href="/admin"
-              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-sm ${
-                isHome ? "text-white bg-white/10 hover:bg-white/20" : "text-white bg-stone-900 hover:bg-stone-800"
+              href="/dashboard"
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-sm font-medium ${
+                isHome ? "text-white/90 hover:bg-white/10" : "text-stone-700 hover:bg-stone-50"
               }`}
               onClick={() => setMobileOpen(false)}
             >
-              <LogIn size={14} />
-              Login
+              <User size={14} />
+              {hasAccount ? "My Account" : "Sign In"}
             </Link>
           </div>
         </div>

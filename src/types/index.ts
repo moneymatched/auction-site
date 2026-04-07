@@ -48,6 +48,8 @@ export interface Bidder {
   email: string;
   phone: string;
   created_at: string;
+  /** Set after the bidder clicks the email confirmation link (null until verified). */
+  email_verified_at: string | null;
 }
 
 export interface Bid {

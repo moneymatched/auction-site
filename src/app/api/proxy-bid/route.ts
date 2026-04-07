@@ -3,6 +3,8 @@ import { createSupabaseServiceClient } from "@/lib/supabase";
 import { getEffectiveAuctionStatus } from "@/lib/auction-status";
 import { resolveProxyBids } from "@/lib/proxy-bid";
 import { formatCurrency } from "@/lib/auction-utils";
+import { getLeadingBidderEmail, notifyOutbidRecipients } from "@/lib/outbid-email";
+import { requireVerifiedBidderForBid } from "@/lib/require-verified-bidder";
 
 export async function POST(req: NextRequest) {
   const supabase = createSupabaseServiceClient();
@@ -64,6 +66,9 @@ export async function POST(req: NextRequest) {
       : auction.starting_bid;
 
   const normalizedEmail = bidder_email.trim().toLowerCase();
+
+  const verifiedCheck = await requireVerifiedBidderForBid(supabase, normalizedEmail);
+  if (verifiedCheck) return verifiedCheck;
 
   const { data: othersForFloor } = await supabase
     .from("proxy_bids")
@@ -147,6 +152,9 @@ export async function POST(req: NextRequest) {
       new_end_time: auction.end_time,
     });
   }
+
+  const prevLead = await getLeadingBidderEmail(supabase, auction_id);
+  let tieOutbidRecipient: string | null = null;
 
   // Fetch all proxies to determine who wins and at what price
   const { data: allProxies } = await supabase
@@ -261,16 +269,21 @@ export async function POST(req: NextRequest) {
       was_auto_extended: shouldExtend,
       is_proxy: true,
     });
+
+    if (max_amount === competing?.max_amount && bidEmail === competing?.bidder_email) {
+      tieOutbidRecipient = normalizedEmail;
+    }
   }
 
   // Only resolve if this proxy lost — let the competing proxy counter
+  let resolveOutbid: string[] = [];
   if (needsResolution) {
-    await resolveProxyBids(supabase, auction_id, normalizedEmail);
+    resolveOutbid = await resolveProxyBids(supabase, auction_id, normalizedEmail);
   }
 
   const { data: finalAuction } = await supabase
     .from("auctions")
-    .select("end_time")
+    .select("end_time, current_bid")
     .eq("id", auction_id)
     .single();
 
@@ -278,6 +291,17 @@ export async function POST(req: NextRequest) {
   const autoExtended =
     Boolean(finalAuction) &&
     new Date(endTime).getTime() !== new Date(auction.end_time).getTime();
+
+  const finalLead = await getLeadingBidderEmail(supabase, auction_id);
+  const recipients = new Set<string>();
+  const pe = prevLead?.bidder_email?.toLowerCase();
+  const fe = finalLead?.bidder_email?.toLowerCase();
+  if (pe && fe && pe !== fe) recipients.add(pe);
+  for (const e of resolveOutbid) recipients.add(e.toLowerCase());
+  if (tieOutbidRecipient) recipients.add(tieOutbidRecipient.toLowerCase());
+
+  const finalBid = finalAuction?.current_bid ?? updatedAuction.current_bid;
+  await notifyOutbidRecipients(supabase, auction_id, recipients, finalBid);
 
   return NextResponse.json({
     success: true,

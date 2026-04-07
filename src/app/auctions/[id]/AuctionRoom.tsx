@@ -10,7 +10,7 @@ import CountdownTimer from "@/components/CountdownTimer";
 import BidForm from "@/components/BidForm";
 import BidHistory from "@/components/BidHistory";
 import PropertyMap from "@/components/PropertyMap";
-import { MapPin, Gavel, ChevronRight, CheckCircle2, ArrowLeft, Trophy, TrendingUp } from "lucide-react";
+import { MapPin, Gavel, ChevronRight, CheckCircle2, ArrowLeft, Trophy, TrendingUp, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 
 const BIDDER_KEY = "auction_bidder";
@@ -26,6 +26,8 @@ export default function AuctionRoom({ initialAuction, initialBids }: AuctionRoom
   const [showBidForm, setShowBidForm] = useState(false);
   const [bidSuccess, setBidSuccess] = useState(false);
   const [storedEmail, setStoredEmail] = useState<string | null>(null);
+  const [isWatching, setIsWatching] = useState(false);
+  const [watchLoading, setWatchLoading] = useState(false);
 
   // Load the stored bidder's email from localStorage (client-only)
   useEffect(() => {
@@ -33,10 +35,21 @@ export default function AuctionRoom({ initialAuction, initialBids }: AuctionRoom
       const raw = localStorage.getItem(BIDDER_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        setStoredEmail(parsed?.email?.toLowerCase() ?? null);
+        const email = parsed?.email?.toLowerCase() ?? null;
+        setStoredEmail(email);
+        // Check watchlist status
+        if (email) {
+          fetch(`/api/watchlist?email=${encodeURIComponent(email)}`)
+            .then((r) => r.json())
+            .then((data) => {
+              const ids = (data.auctions ?? []).map((a: { id: string }) => a.id);
+              setIsWatching(ids.includes(initialAuction.id));
+            })
+            .catch(() => {});
+        }
       }
     } catch {}
-  }, []);
+  }, [initialAuction.id]);
 
   const property = auction.property!;
   const effectiveStatus = getEffectiveAuctionStatus(auction);
@@ -75,6 +88,29 @@ export default function AuctionRoom({ initialAuction, initialBids }: AuctionRoom
   }, []);
 
   const canBid = effectiveStatus === "live" && new Date(auction.end_time) > new Date();
+
+  async function toggleWatch() {
+    if (!storedEmail || watchLoading) return;
+    setWatchLoading(true);
+    try {
+      if (isWatching) {
+        await fetch(
+          `/api/watchlist?email=${encodeURIComponent(storedEmail)}&auction_id=${auction.id}`,
+          { method: "DELETE" }
+        );
+        setIsWatching(false);
+      } else {
+        await fetch("/api/watchlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: storedEmail, auction_id: auction.id }),
+        });
+        setIsWatching(true);
+      }
+    } catch {} finally {
+      setWatchLoading(false);
+    }
+  }
 
   // Bidder status banner logic
   const topBidderEmail = bids.find((b) => b.amount === auction.current_bid)?.bidder_email?.toLowerCase();
@@ -236,6 +272,22 @@ export default function AuctionRoom({ initialAuction, initialBids }: AuctionRoom
                   Min. bid: {formatCurrency(auction.current_bid + auction.min_bid_increment)}
                   {" "}· Auto-extends {auction.auto_extend_seconds / 60}m if bid in last {auction.auto_extend_threshold / 60}m
                 </p>
+              )}
+
+              {/* Watch button */}
+              {storedEmail && (
+                <button
+                  onClick={toggleWatch}
+                  disabled={watchLoading}
+                  className={`w-full mt-3 py-2.5 text-sm font-medium rounded-sm transition-colors flex items-center justify-center gap-1.5 ${
+                    isWatching
+                      ? "bg-stone-100 text-stone-700 hover:bg-stone-200 border border-stone-200"
+                      : "text-stone-500 hover:bg-stone-50 border border-stone-200"
+                  }`}
+                >
+                  {isWatching ? <EyeOff size={14} /> : <Eye size={14} />}
+                  {isWatching ? "Watching" : "Add to Watchlist"}
+                </button>
               )}
             </div>
 

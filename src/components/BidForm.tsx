@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Auction, Bidder } from "@/types";
 import { formatCurrency, getMinimumNextBid } from "@/lib/auction-utils";
-import { X, DollarSign, Loader2, UserCheck, UserPlus } from "lucide-react";
+import { X, DollarSign, Loader2, Mail, UserCheck, UserPlus } from "lucide-react";
 
 const BIDDER_KEY = "auction_bidder";
 
@@ -165,7 +165,137 @@ function RegistrationStep({ onRegistered, onClose }: RegistrationStepProps) {
   );
 }
 
-// ─── Step 2: Place Bid ────────────────────────────────────────────────────────
+// ─── Step 2: Confirm email ───────────────────────────────────────────────────
+
+interface VerifyEmailStepProps {
+  bidder: Bidder;
+  onVerified: (bidder: Bidder) => void;
+  onClose: () => void;
+}
+
+function VerifyEmailStep({ bidder, onVerified, onClose }: VerifyEmailStepProps) {
+  const [loading, setLoading] = useState<"resend" | "refresh" | null>(null);
+  const [error, setError] = useState("");
+
+  async function refreshStatus() {
+    setError("");
+    setLoading("refresh");
+    try {
+      const res = await fetch(
+        `/api/bidders/lookup?email=${encodeURIComponent(bidder.email)}`
+      );
+      const data = (await res.json()) as { email_verified_at?: string | null; error?: string };
+      if (!res.ok) {
+        setError(data.error ?? "Could not check status.");
+        return;
+      }
+      const fresh: Bidder = {
+        ...bidder,
+        email_verified_at: data.email_verified_at ?? null,
+      };
+      storeBidder(fresh);
+      if (fresh.email_verified_at) {
+        onVerified(fresh);
+      } else {
+        setError("Not verified yet. Click the link in your email, then try again.");
+      }
+    } catch {
+      setError("Network error. Please check your connection.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function resend() {
+    setError("");
+    setLoading("resend");
+    try {
+      const res = await fetch("/api/bidders/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: bidder.email }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Could not resend email.");
+        return;
+      }
+    } catch {
+      setError("Network error. Please check your connection.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  return (
+    <>
+      <div className="flex items-center justify-between p-6 border-b border-stone-200">
+        <div>
+          <h2 className="text-lg font-semibold text-stone-900">Confirm your email</h2>
+          <p className="text-sm text-stone-500 mt-0.5">
+            One quick step before you can bid
+          </p>
+        </div>
+        <button type="button" onClick={onClose} className="btn-ghost p-2">
+          <X size={20} />
+        </button>
+      </div>
+
+      <div className="p-6 space-y-4">
+        <div className="flex justify-center py-2">
+          <div className="rounded-full bg-stone-100 p-4 text-stone-600">
+            <Mail size={28} />
+          </div>
+        </div>
+        <p className="text-sm text-stone-600 text-center leading-relaxed">
+          We sent a confirmation link to{" "}
+          <strong className="text-stone-800">{bidder.email}</strong>. Open it, then
+          click the button below to continue.
+        </p>
+
+        {error && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-sm px-3 py-2">
+            {error}
+          </p>
+        )}
+
+        <div className="space-y-2 pt-1">
+          <button
+            type="button"
+            disabled={loading !== null}
+            onClick={refreshStatus}
+            className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading === "refresh" ? (
+              <>
+                <Loader2 size={16} className="animate-spin" /> Checking…
+              </>
+            ) : (
+              "I've confirmed my email"
+            )}
+          </button>
+          <button
+            type="button"
+            disabled={loading !== null}
+            onClick={resend}
+            className="btn-ghost w-full text-sm text-stone-600 border border-stone-200"
+          >
+            {loading === "resend" ? (
+              <>
+                <Loader2 size={16} className="animate-spin inline mr-2" />
+                Sending…
+              </>
+            ) : (
+              "Resend email"
+            )}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Step 3: Place Bid ────────────────────────────────────────────────────────
 
 interface BidStepProps {
   auction: Auction;
@@ -239,7 +369,10 @@ function BidStep({ auction, bidder, topBidderEmail, onSuccess, onClose }: BidSte
           <div className="flex items-center gap-2 text-sm text-stone-700">
             <UserCheck size={15} className="text-emerald-600 shrink-0" />
             <span>
-              Bidding as <strong>Me</strong>
+              Bidding as{" "}
+              <strong>
+                {bidder.first_name} {bidder.last_name}
+              </strong>
             </span>
           </div>
         </div>
@@ -310,20 +443,59 @@ export default function BidForm({ auction, topBidderEmail, onSuccess, onClose }:
     setBidder(loadStoredBidder());
   }, []);
 
+  useEffect(() => {
+    const stored = loadStoredBidder();
+    if (!stored?.email) return;
+    let cancelled = false;
+    fetch(`/api/bidders/lookup?email=${encodeURIComponent(stored.email)}`)
+      .then(async (r) => {
+        if (!r.ok) return null;
+        return r.json() as Promise<{ email_verified_at: string | null }>;
+      })
+      .then((patch) => {
+        if (cancelled || !patch) return;
+        const merged: Bidder = { ...stored, email_verified_at: patch.email_verified_at };
+        storeBidder(merged);
+        setBidder((prev) => {
+          if (!prev || prev.email.toLowerCase() !== stored.email.toLowerCase()) return prev;
+          return merged;
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const emailVerified = Boolean(bidder?.email_verified_at);
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="w-full max-w-md bg-white rounded-sm shadow-2xl animate-slide-up">
         {bidder ? (
-          <BidStep
-            auction={auction}
-            bidder={bidder}
-            topBidderEmail={topBidderEmail}
-            onSuccess={onSuccess}
-            onClose={onClose}
-          />
+          emailVerified ? (
+            <BidStep
+              auction={auction}
+              bidder={bidder}
+              topBidderEmail={topBidderEmail}
+              onSuccess={onSuccess}
+              onClose={onClose}
+            />
+          ) : (
+            <VerifyEmailStep
+              bidder={bidder}
+              onVerified={(b) => {
+                storeBidder(b);
+                setBidder(b);
+              }}
+              onClose={onClose}
+            />
+          )
         ) : (
           <RegistrationStep
-            onRegistered={(b) => setBidder(b)}
+            onRegistered={(b) => {
+              storeBidder(b);
+              setBidder(b);
+            }}
             onClose={onClose}
           />
         )}

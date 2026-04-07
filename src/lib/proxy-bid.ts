@@ -11,19 +11,20 @@ import { SupabaseClient } from "@supabase/supabase-js";
  * - If justBidEmail has no proxy (manual bidder), they count as bidding at current_bid.
  *
  * @param justBidEmail - email of the person whose bid just landed
+ * @returns Emails of bidders who lost the lead due to proxy resolution (for notifications).
  */
 export async function resolveProxyBids(
   supabase: SupabaseClient,
   auctionId: string,
   justBidEmail: string
-): Promise<void> {
+): Promise<string[]> {
   const { data: auction } = await supabase
     .from("auctions")
     .select("*")
     .eq("id", auctionId)
     .single();
 
-  if (!auction || new Date(auction.end_time) <= new Date()) return;
+  if (!auction || new Date(auction.end_time) <= new Date()) return [];
 
   const increment = auction.min_bid_increment;
   const currentBid = auction.current_bid;
@@ -35,7 +36,7 @@ export async function resolveProxyBids(
     .eq("auction_id", auctionId)
     .order("max_amount", { ascending: false });
 
-  if (!proxies || proxies.length === 0) return;
+  if (!proxies || proxies.length === 0) return [];
 
   const justBidProxy = proxies.find((p) => p.bidder_email === justBidEmail);
   const justBidMax = justBidProxy?.max_amount ?? currentBid;
@@ -45,7 +46,7 @@ export async function resolveProxyBids(
   // nobody can pay minNeeded yet the price must still jump to M.
   const competing = proxies.find((p) => p.bidder_email !== justBidEmail);
 
-  if (!competing) return;
+  if (!competing) return [];
 
   let winner: typeof competing;
   let winningAmount: number;
@@ -66,12 +67,12 @@ export async function resolveProxyBids(
   } else {
     // justBid proxy wins — jump to just above competing's max.
     // competing is already the highest other proxy, so this is the correct second price.
-    if (!justBidProxy) return; // manual bidder wins, nothing to do
+    if (!justBidProxy) return []; // manual bidder wins, nothing to do
     winner = justBidProxy;
     winningAmount = Math.min(competing.max_amount + increment, justBidProxy.max_amount);
   }
 
-  if (winningAmount <= currentBid) return;
+  if (winningAmount <= currentBid) return [];
 
   // Auto-extend check
   const secondsRemaining = Math.floor(
@@ -98,7 +99,7 @@ export async function resolveProxyBids(
     .select()
     .maybeSingle();
 
-  if (!updated) return;
+  if (!updated) return [];
 
   await supabase.from("bids").insert({
     auction_id: auctionId,
@@ -109,4 +110,10 @@ export async function resolveProxyBids(
     was_auto_extended: shouldExtend,
     is_proxy: true,
   });
+
+  const justNorm = justBidEmail.trim().toLowerCase();
+  if (competing.max_amount >= justBidMax) {
+    return [justNorm];
+  }
+  return [competing.bidder_email.trim().toLowerCase()];
 }

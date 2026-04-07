@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase";
 import { getEffectiveAuctionStatus } from "@/lib/auction-status";
 import { resolveProxyBids } from "@/lib/proxy-bid";
+import { getLeadingBidderEmail, notifyOutbidRecipients } from "@/lib/outbid-email";
+import { requireVerifiedBidderForBid } from "@/lib/require-verified-bidder";
 
 export async function POST(req: NextRequest) {
   const supabase = createSupabaseServiceClient();
@@ -29,6 +31,9 @@ export async function POST(req: NextRequest) {
   if (typeof amount !== "number" || amount <= 0) {
     return NextResponse.json({ error: "Invalid bid amount" }, { status: 400 });
   }
+
+  const verifiedCheck = await requireVerifiedBidderForBid(supabase, bidder_email);
+  if (verifiedCheck) return verifiedCheck;
 
   // Fetch current auction state
   const { data: auction, error: fetchError } = await supabase
@@ -62,6 +67,8 @@ export async function POST(req: NextRequest) {
       { status: 409 }
     );
   }
+
+  const prevLead = await getLeadingBidderEmail(supabase, auction_id);
 
   // Determine if this bid should trigger auto-extend
   const secondsRemaining = Math.floor(
@@ -115,7 +122,27 @@ export async function POST(req: NextRequest) {
   }
 
   // Let any competing proxy bids respond to this manual bid
-  await resolveProxyBids(supabase, auction_id, bidder_email.trim().toLowerCase());
+  const resolveOutbid = await resolveProxyBids(
+    supabase,
+    auction_id,
+    bidder_email.trim().toLowerCase()
+  );
+
+  const finalLead = await getLeadingBidderEmail(supabase, auction_id);
+  const { data: auctionFinal } = await supabase
+    .from("auctions")
+    .select("current_bid")
+    .eq("id", auction_id)
+    .single();
+
+  const recipients = new Set<string>();
+  const pe = prevLead?.bidder_email?.toLowerCase();
+  const fe = finalLead?.bidder_email?.toLowerCase();
+  if (pe && fe && pe !== fe) recipients.add(pe);
+  for (const e of resolveOutbid) recipients.add(e.toLowerCase());
+
+  const finalBid = auctionFinal?.current_bid ?? updatedAuction.current_bid;
+  await notifyOutbidRecipients(supabase, auction_id, recipients, finalBid);
 
   return NextResponse.json({
     success: true,
