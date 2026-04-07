@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ items: [] });
   }
 
-  const auctionIds = [...new Set(myBids.map((b) => b.auction_id))];
+  const auctionIds = Array.from(new Set(myBids.map((b) => b.auction_id)));
 
   // Fetch auctions with full property data
   const { data: auctions } = await supabase

@@ -12,7 +12,6 @@ import { getEffectiveAuctionStatus } from "@/lib/auction-status";
 import CountdownTimer from "@/components/CountdownTimer";
 import {
   Loader2,
-  Mail,
   Gavel,
   Eye,
   User,
