@@ -21,12 +21,16 @@ export async function POST(req: NextRequest) {
 
   const payload = {
     title: body.title,
+    apn: body.apn ?? "",
     description: body.description ?? "",
+    terms_and_conditions: body.terms_and_conditions ?? "",
     address: body.address ?? "",
     city: body.city ?? "",
     state: body.state ?? "",
     acreage: typeof body.acreage === "number" ? body.acreage : parseFloat(String(body.acreage || 0)) || 0,
     zoning_type: body.zoning_type ?? "Agricultural",
+    buyer_premium: typeof body.buyer_premium === "number" ? body.buyer_premium : parseFloat(String(body.buyer_premium || 0)) || 0,
+    doc_fee: typeof body.doc_fee === "number" ? body.doc_fee : parseFloat(String(body.doc_fee || 0)) || 0,
     lat: body.lat ?? null,
     lng: body.lng ?? null,
   };

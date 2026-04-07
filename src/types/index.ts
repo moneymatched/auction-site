@@ -3,12 +3,16 @@ export type AuctionStatus = "upcoming" | "live" | "ended" | "cancelled";
 export interface Property {
   id: string;
   title: string;
+  apn: string;
   description: string;
+  terms_and_conditions: string;
   address: string;
   city: string;
   state: string;
   acreage: number;
   zoning_type: string;
+  buyer_premium: number;
+  doc_fee: number;
   lat: number;
   lng: number;
   created_at: string;
