@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Menu, X, User } from "lucide-react";
+import { Menu, X, User, Heart } from "lucide-react";
 
 export default function Nav() {
   const pathname = usePathname();
@@ -62,9 +62,20 @@ export default function Nav() {
                 {link.label}
               </Link>
             ))}
+            {hasAccount && (
+              <Link
+                href="/dashboard?tab=watchlist"
+                className={`flex items-center gap-1.5 px-4 py-2 text-sm transition-colors ${
+                  isHome ? "text-white/80 hover:text-white" : "text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                <Heart size={14} />
+                Watchlist
+              </Link>
+            )}
             <Link
               href="/dashboard"
-              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-sm ml-2 ${
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-sm ml-1 ${
                 isHome
                   ? "text-white border border-white/30 hover:bg-white/10"
                   : "text-stone-700 border border-stone-300 hover:bg-stone-100"
@@ -107,6 +118,18 @@ export default function Nav() {
                 {link.label}
               </Link>
             ))}
+            {hasAccount && (
+              <Link
+                href="/dashboard?tab=watchlist"
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-sm ${
+                  isHome ? "text-white/90 hover:bg-white/10" : "text-stone-700 hover:bg-stone-50"
+                }`}
+                onClick={() => setMobileOpen(false)}
+              >
+                <Heart size={14} />
+                Watchlist
+              </Link>
+            )}
             <Link
               href="/dashboard"
               className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-sm font-medium ${

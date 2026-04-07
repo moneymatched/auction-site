@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Auction, AuctionStatus } from "@/types";
 import AuctionCard from "@/components/AuctionCard";
+import BidForm from "@/components/BidForm";
 import PropertyMap from "@/components/PropertyMap";
-import { LayoutGrid, Map, Gavel } from "lucide-react";
+import { LayoutGrid, Map, Gavel, CheckCircle2 } from "lucide-react";
+
+type BidStatus = "leading" | "outbid" | "won" | "lost";
 
 type FilterType = "all" | AuctionStatus;
 
@@ -26,6 +29,100 @@ export default function AuctionsClient({ initialAuctions }: AuctionsClientProps)
     searchParams.get("view") === "map" ? "map" : "grid"
   );
   const [filter, setFilter] = useState<FilterType>("all");
+  const [bidAuction, setBidAuction] = useState<Auction | null>(null);
+  const [bidSuccess, setBidSuccess] = useState(false);
+  const [bidStatuses, setBidStatuses] = useState<Record<string, BidStatus>>({});
+  const [watchedIds, setWatchedIds] = useState<Set<string>>(new Set());
+  const [bidderEmail, setBidderEmail] = useState<string | null>(null);
+
+  // Fetch bid statuses + watchlist for logged-in bidder
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("auction_bidder");
+      if (!raw) return;
+      const bidder = JSON.parse(raw);
+      if (!bidder?.email || !bidder?.email_verified_at) return;
+      const email = bidder.email;
+      setBidderEmail(email);
+
+      // Fetch bids and watchlist in parallel
+      Promise.all([
+        fetch(`/api/dashboard/bids?email=${encodeURIComponent(email)}`).then((r) => r.json()),
+        fetch(`/api/watchlist?email=${encodeURIComponent(email)}`).then((r) => r.json()),
+      ]).then(([bidsData, watchData]) => {
+        const map: Record<string, BidStatus> = {};
+        for (const item of bidsData.items ?? []) {
+          map[item.auction.id] = item.bidStatus;
+        }
+        setBidStatuses(map);
+
+        const ids = new Set<string>(
+          (watchData.auctions ?? []).map((a: { id: string }) => a.id)
+        );
+        setWatchedIds(ids);
+      }).catch(() => {});
+    } catch {}
+  }, []);
+
+  const handleBidSuccess = useCallback(() => {
+    setBidAuction(null);
+    setBidSuccess(true);
+    setTimeout(() => setBidSuccess(false), 5000);
+    // Refresh bid statuses
+    try {
+      const raw = localStorage.getItem("auction_bidder");
+      if (!raw) return;
+      const bidder = JSON.parse(raw);
+      if (!bidder?.email) return;
+      fetch(`/api/dashboard/bids?email=${encodeURIComponent(bidder.email)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          const map: Record<string, BidStatus> = {};
+          for (const item of data.items ?? []) {
+            map[item.auction.id] = item.bidStatus;
+          }
+          setBidStatuses(map);
+        })
+        .catch(() => {});
+    } catch {}
+  }, []);
+
+  const toggleWatch = useCallback(
+    async (auctionId: string) => {
+      if (!bidderEmail) return;
+      const wasWatched = watchedIds.has(auctionId);
+      // Optimistic update
+      setWatchedIds((prev) => {
+        const next = new Set(prev);
+        if (wasWatched) next.delete(auctionId);
+        else next.add(auctionId);
+        return next;
+      });
+      try {
+        if (wasWatched) {
+          await fetch(
+            `/api/watchlist?email=${encodeURIComponent(bidderEmail)}&auction_id=${auctionId}`,
+            { method: "DELETE" }
+          );
+        } else {
+          await fetch("/api/watchlist", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: bidderEmail, auction_id: auctionId }),
+          });
+        }
+      } catch {
+        // Revert on failure
+        setWatchedIds((prev) => {
+          const next = new Set(prev);
+          if (wasWatched) next.add(auctionId);
+          else next.delete(auctionId);
+          return next;
+        });
+      }
+    },
+    [bidderEmail, watchedIds]
+  );
 
   const filtered =
     filter === "all"
@@ -122,9 +219,33 @@ export default function AuctionsClient({ initialAuctions }: AuctionsClientProps)
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((auction) => (
-            <AuctionCard key={auction.id} auction={auction} />
+            <AuctionCard
+              key={auction.id}
+              auction={auction}
+              onBid={setBidAuction}
+              bidStatus={bidStatuses[auction.id]}
+              isWatched={watchedIds.has(auction.id)}
+              onToggleWatch={bidderEmail ? toggleWatch : undefined}
+            />
           ))}
         </div>
+      )}
+
+      {/* Bid success banner */}
+      {bidSuccess && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white text-sm font-medium rounded-sm shadow-lg animate-slide-up">
+          <CheckCircle2 size={16} />
+          Bid placed successfully!
+        </div>
+      )}
+
+      {/* Bid form modal */}
+      {bidAuction && (
+        <BidForm
+          auction={bidAuction}
+          onSuccess={handleBidSuccess}
+          onClose={() => setBidAuction(null)}
+        />
       )}
     </main>
   );

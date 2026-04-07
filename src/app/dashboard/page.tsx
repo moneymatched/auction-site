@@ -226,9 +226,11 @@ function DashboardBidCard({ item }: { item: DashboardBidItem }) {
 function WatchlistCard({
   auction,
   onRemove,
+  bidStatus,
 }: {
   auction: Auction;
   onRemove: () => void;
+  bidStatus?: BidStatus;
 }) {
   const property = auction.property;
   const primaryImage =
@@ -263,12 +265,15 @@ function WatchlistCard({
         <div className="flex-1 p-4 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <Link
-                href={`/auctions/${auction.id}`}
-                className="font-medium text-stone-900 hover:text-stone-600 transition-colors truncate block text-sm"
-              >
-                {property?.title ?? "Property"}
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/auctions/${auction.id}`}
+                  className="font-medium text-stone-900 hover:text-stone-600 transition-colors truncate text-sm"
+                >
+                  {property?.title ?? "Property"}
+                </Link>
+                {bidStatus && <BidStatusBadge status={bidStatus} />}
+              </div>
               {property && (
                 <p className="text-xs text-stone-400 mt-0.5">
                   {property.city}, {property.state}
@@ -462,7 +467,10 @@ function DashboardContent() {
   const [tokenLoading, setTokenLoading] = useState(!!loginToken);
   const [tokenError, setTokenError] = useState("");
 
-  const [tab, setTab] = useState<Tab>("bids");
+  const initialTab = (searchParams.get("tab") as Tab) || "bids";
+  const [tab, setTab] = useState<Tab>(
+    ["bids", "watchlist", "account"].includes(initialTab) ? initialTab : "bids"
+  );
   const [bidItems, setBidItems] = useState<DashboardBidItem[]>([]);
   const [watchlistAuctions, setWatchlistAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -712,13 +720,17 @@ function DashboardContent() {
                   </Link>
                 </div>
               ) : (
-                watchlistAuctions.map((auction) => (
-                  <WatchlistCard
-                    key={auction.id}
-                    auction={auction}
-                    onRemove={() => removeFromWatchlist(auction.id)}
-                  />
-                ))
+                watchlistAuctions.map((auction) => {
+                  const status = bidItems.find((i) => i.auction.id === auction.id)?.bidStatus;
+                  return (
+                    <WatchlistCard
+                      key={auction.id}
+                      auction={auction}
+                      onRemove={() => removeFromWatchlist(auction.id)}
+                      bidStatus={status}
+                    />
+                  );
+                })
               )}
             </div>
           )}
