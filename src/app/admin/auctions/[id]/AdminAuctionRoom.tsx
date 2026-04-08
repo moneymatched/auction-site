@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Auction, Bid, Invoice, Property } from "@/types";
+import { useState, useEffect, useRef } from "react";
+import { Auction, Bid, Invoice, InvoiceAttachment, Property } from "@/types";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { formatCurrency, getStatusColor, getStatusLabel } from "@/lib/auction-utils";
 import { getEffectiveAuctionStatus } from "@/lib/auction-status";
@@ -20,6 +20,9 @@ import {
   Save,
   Mail,
   FileText,
+  Upload,
+  Link2,
+  Trash2,
 } from "lucide-react";
 
 interface AdminAuctionRoomProps {
@@ -27,6 +30,7 @@ interface AdminAuctionRoomProps {
   bids: Bid[];
   properties: Property[];
   invoice: Invoice | null;
+  invoiceAttachments: InvoiceAttachment[];
 }
 
 export default function AdminAuctionRoom({
@@ -34,6 +38,7 @@ export default function AdminAuctionRoom({
   bids: initialBids,
   properties,
   invoice: initialInvoice,
+  invoiceAttachments: initialInvoiceAttachments,
 }: AdminAuctionRoomProps) {
   const [auction, setAuction] = useState(initialAuction);
   const [bids, setBids] = useState(initialBids);
@@ -45,8 +50,11 @@ export default function AdminAuctionRoom({
   const [invoiceDueDate, setInvoiceDueDate] = useState(initialInvoice?.due_date ?? "");
   const [invoiceSaving, setInvoiceSaving] = useState(false);
   const [invoiceSending, setInvoiceSending] = useState(false);
+  const [invoiceUploading, setInvoiceUploading] = useState(false);
+  const [invoiceAttachments, setInvoiceAttachments] = useState<InvoiceAttachment[]>(initialInvoiceAttachments);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [invoiceMessage, setInvoiceMessage] = useState<string | null>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   // Realtime subscription
   useEffect(() => {
@@ -117,6 +125,19 @@ export default function AdminAuctionRoom({
   }, null);
   const property = auction.property!;
   const effectiveStatus = getEffectiveAuctionStatus(auction);
+  const buyerPremiumRate = Math.max(0, Number(property.buyer_premium ?? 0));
+  const docFee = Math.max(0, Number(property.doc_fee ?? 0));
+  const hammerPrice = Math.max(0, Number(winner?.amount ?? 0));
+  const buyerPremiumAmount = Math.round(hammerPrice * (buyerPremiumRate / 100) * 100) / 100;
+  const computedTotalDue = Math.round((hammerPrice + buyerPremiumAmount + docFee) * 100) / 100;
+  const earnestMoneyDeposit = Math.round(computedTotalDue * 0.1 * 100) / 100;
+  const amountDue = invoice?.amount ?? computedTotalDue;
+
+  function formatFileSize(value: number | null): string {
+    if (!value || value < 1024) return `${value ?? 0} B`;
+    if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  }
 
   async function saveInvoiceDraft() {
     setInvoiceSaving(true);
@@ -137,6 +158,9 @@ export default function AdminAuctionRoom({
       return;
     }
     setInvoice(data.invoice as Invoice);
+    if (Array.isArray(data.attachments)) {
+      setInvoiceAttachments(data.attachments as InvoiceAttachment[]);
+    }
     setInvoiceMessage("Invoice draft saved.");
     setInvoiceSaving(false);
   }
@@ -165,6 +189,9 @@ export default function AdminAuctionRoom({
     }
 
     setInvoice(data.invoice as Invoice);
+    if (Array.isArray(data.attachments)) {
+      setInvoiceAttachments(data.attachments as InvoiceAttachment[]);
+    }
     if (data.delivery === "mailto" && data.mailto_url) {
       setInvoiceMessage(
         data.warning || "Opening your default email app with the invoice details pre-filled."
@@ -176,6 +203,76 @@ export default function AdminAuctionRoom({
       setInvoiceMessage("Invoice email sent to winner.");
     }
     setInvoiceSending(false);
+  }
+
+  async function ensureInvoiceExists(): Promise<Invoice | null> {
+    if (invoice) return invoice;
+    const res = await fetch(`/api/auctions/${auction.id}/invoice`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        notes: invoiceNotes,
+        due_date: invoiceDueDate || null,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setInvoiceError(data.error || "Save draft before uploading files");
+      return null;
+    }
+    const newInvoice = data.invoice as Invoice;
+    setInvoice(newInvoice);
+    if (Array.isArray(data.attachments)) {
+      setInvoiceAttachments(data.attachments as InvoiceAttachment[]);
+    }
+    return newInvoice;
+  }
+
+  async function uploadInvoiceAttachment(file: File) {
+    setInvoiceError(null);
+    setInvoiceMessage(null);
+    setInvoiceUploading(true);
+
+    const inv = await ensureInvoiceExists();
+    if (!inv) {
+      setInvoiceUploading(false);
+      return;
+    }
+
+    const formData = new FormData();
+    formData.set("file", file);
+
+    const res = await fetch(`/api/invoices/${inv.id}/attachments`, {
+      method: "POST",
+      body: formData,
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      setInvoiceError(data.error || "Failed to upload attachment");
+      setInvoiceUploading(false);
+      return;
+    }
+
+    setInvoiceAttachments((prev) => [...prev, data as InvoiceAttachment]);
+    setInvoiceMessage("Attachment uploaded.");
+    setInvoiceUploading(false);
+  }
+
+  async function removeInvoiceAttachment(attachmentId: string) {
+    if (!invoice) return;
+    setInvoiceError(null);
+    setInvoiceMessage(null);
+    const res = await fetch(`/api/invoices/${invoice.id}/attachments/${attachmentId}`, {
+      method: "DELETE",
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setInvoiceError(data.error || "Failed to delete attachment");
+      return;
+    }
+    setInvoiceAttachments((prev) => prev.filter((item) => item.id !== attachmentId));
+    setInvoiceMessage("Attachment removed.");
   }
 
   return (
@@ -332,8 +429,34 @@ export default function AdminAuctionRoom({
             <div>
               <p className="text-xs text-stone-400">Amount Due</p>
               <p className="text-sm font-semibold text-emerald-700">
-                {formatCurrency(winner.amount)}
+                {formatCurrency(amountDue)}
               </p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-stone-200 bg-stone-50 p-4">
+            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Invoice Breakdown</p>
+            <div className="mt-2 space-y-2 text-sm">
+              <div className="flex items-center justify-between text-stone-700">
+                <span>Winning Bid (Hammer Price)</span>
+                <span className="font-medium">{formatCurrency(hammerPrice)}</span>
+              </div>
+              <div className="flex items-center justify-between text-stone-700">
+                <span>Buyer&apos;s Premium ({buyerPremiumRate}%)</span>
+                <span className="font-medium">{formatCurrency(buyerPremiumAmount)}</span>
+              </div>
+              <div className="flex items-center justify-between text-stone-700">
+                <span>Documentation Fee</span>
+                <span className="font-medium">{formatCurrency(docFee)}</span>
+              </div>
+              <div className="border-t border-stone-200 pt-2 flex items-center justify-between text-stone-900">
+                <span className="font-semibold">Total Amount Due</span>
+                <span className="font-semibold text-emerald-700">{formatCurrency(amountDue)}</span>
+              </div>
+              <div className="flex items-center justify-between text-stone-600">
+                <span>Earnest Money Deposit (10%, due in 24 hours)</span>
+                <span className="font-medium">{formatCurrency(earnestMoneyDeposit)}</span>
+              </div>
             </div>
           </div>
 
@@ -369,6 +492,65 @@ export default function AdminAuctionRoom({
               value={invoiceNotes}
               onChange={(e) => setInvoiceNotes(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="label">Supporting documents</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => attachmentInputRef.current?.click()}
+                disabled={invoiceSaving || invoiceSending || invoiceUploading}
+                className="btn-secondary text-sm"
+              >
+                <Upload size={14} />
+                {invoiceUploading ? "Uploading..." : "Upload Document"}
+              </button>
+              <p className="text-xs text-stone-500">
+                Upload wire instructions or related docs (max 15MB).
+              </p>
+            </div>
+            <input
+              ref={attachmentInputRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  uploadInvoiceAttachment(file);
+                }
+                e.currentTarget.value = "";
+              }}
+            />
+
+            {invoiceAttachments.length > 0 && (
+              <div className="space-y-1 rounded-md border border-stone-200 bg-stone-50 p-3">
+                {invoiceAttachments.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
+                    <a
+                      href={item.public_url || "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-stone-700 hover:text-stone-900 underline"
+                    >
+                      <Link2 size={13} />
+                      {item.file_name}
+                    </a>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-stone-500">{formatFileSize(item.size_bytes)}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeInvoiceAttachment(item.id)}
+                        className="text-red-600 hover:text-red-700"
+                        title="Remove attachment"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {(invoiceError || invoiceMessage) && (
