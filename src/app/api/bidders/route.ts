@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { createSupabaseServiceClient } from "@/lib/supabase";
 import { Bidder } from "@/types";
 import {
@@ -18,6 +19,11 @@ export async function POST(req: NextRequest) {
     last_name: string;
     email: string;
     phone: string;
+    password: string;
+    address_street: string;
+    address_city: string;
+    address_state: string;
+    address_zip: string;
   };
 
   try {
@@ -26,10 +32,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const { first_name, last_name, email, phone } = body;
+  const { first_name, last_name, email, phone, password, address_street, address_city, address_state, address_zip } = body;
 
   if (!first_name?.trim() || !last_name?.trim() || !email?.trim() || !phone?.trim()) {
     return NextResponse.json({ error: "All fields are required" }, { status: 400 });
+  }
+
+  if (!password || password.length < 8) {
+    return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+  }
+
+  if (!address_street?.trim() || !address_city?.trim() || !address_state?.trim() || !address_zip?.trim()) {
+    return NextResponse.json({ error: "Full home address is required" }, { status: 400 });
   }
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -91,12 +105,18 @@ export async function POST(req: NextRequest) {
   }
 
   const nowIso = new Date().toISOString();
+  const passwordHash = await bcrypt.hash(password, 10);
 
   const insertRow: Record<string, unknown> = {
     first_name: first_name.trim(),
     last_name: last_name.trim(),
     email: normalizedEmail,
     phone: phone.trim(),
+    password_hash: passwordHash,
+    address_street: address_street.trim(),
+    address_city: address_city.trim(),
+    address_state: address_state.trim().toUpperCase(),
+    address_zip: address_zip.trim(),
   };
 
   if (devAutoVerify) {

@@ -51,6 +51,10 @@ export interface Bidder {
   last_name: string;
   email: string;
   phone: string;
+  address_street: string | null;
+  address_city: string | null;
+  address_state: string | null;
+  address_zip: string | null;
   created_at: string;
   /** Set after the bidder clicks the email confirmation link (null until verified). */
   email_verified_at: string | null;

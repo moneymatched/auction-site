@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabase
     .from("bidders")
-    .select("id, first_name, last_name, email, phone, created_at, email_verified_at")
+    .select("id, first_name, last_name, email, phone, address_street, address_city, address_state, address_zip, created_at, email_verified_at")
     .eq("email", email)
     .maybeSingle();
 

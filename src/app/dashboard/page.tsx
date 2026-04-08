@@ -332,10 +332,10 @@ function WatchlistCard({
 
 function LoginForm({ onLoggedIn }: { onLoggedIn: (bidder: Bidder) => void }) {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Also check if bidder is already in localStorage
   useEffect(() => {
     const stored = loadStoredBidder();
     if (stored?.email_verified_at) {
@@ -349,43 +349,20 @@ function LoginForm({ onLoggedIn }: { onLoggedIn: (bidder: Bidder) => void }) {
     setLoading(true);
 
     try {
-      // Look up bidder by email
-      const lookupRes = await fetch(
-        `/api/bidders/lookup?email=${encodeURIComponent(email)}`
-      );
+      const res = await fetch("/api/bidders/login/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-      if (lookupRes.status === 404) {
-        setError(
-          "No account found with that email. Register by placing a bid on an auction."
-        );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "Login failed. Please try again.");
         return;
       }
 
-      if (!lookupRes.ok) {
-        setError("Something went wrong. Please try again.");
-        return;
-      }
-
-      const lookupData = await lookupRes.json();
-
-      if (!lookupData.email_verified_at) {
-        setError(
-          "Your email hasn't been verified yet. Check your inbox for a verification link."
-        );
-        return;
-      }
-
-      // Fetch full bidder record
-      const fullRes = await fetch(
-        `/api/dashboard/bidder?email=${encodeURIComponent(email)}`
-      );
-
-      if (!fullRes.ok) {
-        setError("Login failed. Please try again.");
-        return;
-      }
-
-      const bidder = (await fullRes.json()) as Bidder;
+      const bidder = data as Bidder;
       storeBidder(bidder);
       onLoggedIn(bidder);
     } catch {
@@ -403,7 +380,7 @@ function LoginForm({ onLoggedIn }: { onLoggedIn: (bidder: Bidder) => void }) {
             Sign in to your dashboard
           </h1>
           <p className="text-sm text-stone-500 mt-1">
-            Enter the email you used to register as a bidder.
+            Enter your email and password to sign in.
           </p>
         </div>
 
@@ -418,6 +395,18 @@ function LoginForm({ onLoggedIn }: { onLoggedIn: (bidder: Bidder) => void }) {
               placeholder="jane@example.com"
               required
               autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="label">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="input-field"
+              placeholder="Enter your password"
+              required
             />
           </div>
 
@@ -773,6 +762,20 @@ function DashboardContent() {
                     </p>
                   </div>
                 </div>
+
+                {bidder.address_street && (
+                  <div>
+                    <p className="text-xs text-stone-400 uppercase tracking-wider">
+                      Home Address
+                    </p>
+                    <p className="text-sm text-stone-900 mt-0.5">
+                      {bidder.address_street}
+                      <br />
+                      {bidder.address_city}, {bidder.address_state} {bidder.address_zip}
+                    </p>
+                  </div>
+                )}
+
                 {bidder.email_verified_at && (
                   <div className="flex items-center gap-1.5 text-xs text-emerald-600">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
