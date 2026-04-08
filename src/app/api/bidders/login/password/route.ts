@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { password_hash: _, ...safe } = bidder;
+  const safe = { ...bidder };
+  delete safe.password_hash;
   return NextResponse.json(safe as Bidder);
 }
