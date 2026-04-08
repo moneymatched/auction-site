@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Auction, Bidder } from "@/types";
 import { formatCurrency, getMinimumNextBid } from "@/lib/auction-utils";
-import { X, DollarSign, Loader2, Mail, UserCheck, UserPlus } from "lucide-react";
+import { X, DollarSign, Loader2, Mail, UserCheck, UserPlus, Eye, EyeOff } from "lucide-react";
 
 const BIDDER_KEY = "auction_bidder";
 
@@ -41,7 +41,14 @@ function RegistrationStep({ onRegistered, onClose }: RegistrationStepProps) {
     last_name: "",
     email: "",
     phone: "",
+    password: "",
+    confirm_password: "",
+    address_street: "",
+    address_city: "",
+    address_state: "",
+    address_zip: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -53,6 +60,15 @@ function RegistrationStep({ onRegistered, onClose }: RegistrationStepProps) {
     e.preventDefault();
     setError("");
 
+    if (form.password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (form.password !== form.confirm_password) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch("/api/bidders", {
@@ -63,6 +79,11 @@ function RegistrationStep({ onRegistered, onClose }: RegistrationStepProps) {
           last_name: form.last_name,
           email: form.email,
           phone: form.phone,
+          password: form.password,
+          address_street: form.address_street,
+          address_city: form.address_city,
+          address_state: form.address_state,
+          address_zip: form.address_zip,
         }),
       });
       const data = await res.json();
@@ -91,7 +112,7 @@ function RegistrationStep({ onRegistered, onClose }: RegistrationStepProps) {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-6 space-y-4">
+      <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">First Name *</label>
@@ -140,6 +161,99 @@ function RegistrationStep({ onRegistered, onClose }: RegistrationStepProps) {
             placeholder="(555) 123-4567"
             required
           />
+        </div>
+
+        {/* Password */}
+        <div>
+          <label className="label">Password *</label>
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={form.password}
+              onChange={(e) => setField("password", e.target.value)}
+              className="input-field pr-10"
+              placeholder="Min. 8 characters"
+              required
+              minLength={8}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600"
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="label">Confirm Password *</label>
+          <input
+            type={showPassword ? "text" : "password"}
+            value={form.confirm_password}
+            onChange={(e) => setField("confirm_password", e.target.value)}
+            className="input-field"
+            placeholder="Re-enter password"
+            required
+            minLength={8}
+          />
+        </div>
+
+        {/* Home Address */}
+        <div className="pt-2 border-t border-stone-100">
+          <p className="text-xs font-medium text-stone-500 uppercase tracking-wider mb-3">Home Address</p>
+
+          <div className="space-y-3">
+            <div>
+              <label className="label">Street Address *</label>
+              <input
+                type="text"
+                value={form.address_street}
+                onChange={(e) => setField("address_street", e.target.value)}
+                className="input-field"
+                placeholder="123 Main St"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-5 gap-3">
+              <div className="col-span-2">
+                <label className="label">City *</label>
+                <input
+                  type="text"
+                  value={form.address_city}
+                  onChange={(e) => setField("address_city", e.target.value)}
+                  className="input-field"
+                  placeholder="Springfield"
+                  required
+                />
+              </div>
+              <div className="col-span-1">
+                <label className="label">State *</label>
+                <input
+                  type="text"
+                  value={form.address_state}
+                  onChange={(e) => setField("address_state", e.target.value)}
+                  className="input-field"
+                  placeholder="IL"
+                  maxLength={2}
+                  required
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="label">ZIP Code *</label>
+                <input
+                  type="text"
+                  value={form.address_zip}
+                  onChange={(e) => setField("address_zip", e.target.value)}
+                  className="input-field"
+                  placeholder="62704"
+                  required
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         {error && (

@@ -20,6 +20,7 @@ type AuctionSummary = {
   end_time: string;
   property: {
     title: string;
+    apn: string;
   } | null;
 };
 
@@ -61,7 +62,8 @@ function formatDateKey(dateIso: string): string {
   return `${year}${month}${day}`;
 }
 
-function buildInvoiceNumber(auctionId: string, endTime: string): string {
+function buildInvoiceNumber(apn: string | undefined, auctionId: string, endTime: string): string {
+  if (apn?.trim()) return apn.trim();
   return `INV-${formatDateKey(endTime)}-${auctionId.slice(0, 6).toUpperCase()}`;
 }
 
@@ -150,7 +152,7 @@ async function getAuctionAndWinner(auctionId: string): Promise<{
   const [{ data: auction }, { data: winner }] = await Promise.all([
     supabase
       .from("auctions")
-      .select("id, status, start_time, end_time, property:properties(title)")
+      .select("id, status, start_time, end_time, property:properties(title, apn)")
       .eq("id", auctionId)
       .maybeSingle(),
     supabase
@@ -183,9 +185,9 @@ async function upsertInvoice(params: {
     .eq("auction_id", params.auction.id)
     .maybeSingle();
 
+  const apn = params.auction.property?.apn;
   const invoiceNumber =
-    (existing as InvoiceRow | null)?.invoice_number ??
-    buildInvoiceNumber(params.auction.id, params.auction.end_time);
+    buildInvoiceNumber(apn, params.auction.id, params.auction.end_time);
   const nowIso = new Date().toISOString();
 
   const payload = {
@@ -309,7 +311,7 @@ export async function POST(
   });
 
   const resendApiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.INVOICE_FROM_EMAIL || "invoice@acrebid.com";
+  const fromEmail = process.env.INVOICE_FROM_EMAIL || "info@acrebid.com";
 
   if (!resendApiKey || !fromEmail) {
     return NextResponse.json({
