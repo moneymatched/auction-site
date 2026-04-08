@@ -1,6 +1,7 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase";
-import { Auction, Bid, Invoice, Property } from "@/types";
+import { Auction, Bid, Invoice, InvoiceAttachment, Property } from "@/types";
+import { getStoragePublicUrl } from "@/lib/supabase";
 import { getEffectiveAuctionStatus } from "@/lib/auction-status";
 import { notFound } from "next/navigation";
 import AdminAuctionRoom from "./AdminAuctionRoom";
@@ -27,6 +28,19 @@ async function getData(id: string) {
   ]);
 
   if (!auction) return null;
+  let attachments: InvoiceAttachment[] = [];
+  if (invoice?.id) {
+    const { data: rows } = await supabase
+      .from("invoice_attachments")
+      .select("*")
+      .eq("invoice_id", invoice.id)
+      .order("created_at", { ascending: true });
+    attachments = ((rows as InvoiceAttachment[] | null) ?? []).map((row) => ({
+      ...row,
+      public_url: getStoragePublicUrl("property-images", row.storage_path),
+    }));
+  }
+
   return {
     auction: {
       ...(auction as Auction),
@@ -35,6 +49,7 @@ async function getData(id: string) {
     bids: (bids as Bid[]) ?? [],
     properties: (properties as Property[]) ?? [],
     invoice: (invoice as Invoice | null) ?? null,
+    invoiceAttachments: attachments,
   };
 }
 

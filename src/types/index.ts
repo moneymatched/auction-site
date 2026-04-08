@@ -103,3 +103,14 @@ export interface Invoice {
   created_at: string;
   updated_at: string;
 }
+
+export interface InvoiceAttachment {
+  id: string;
+  invoice_id: string;
+  file_name: string;
+  storage_path: string;
+  content_type: string | null;
+  size_bytes: number | null;
+  created_at: string;
+  public_url?: string;
+}

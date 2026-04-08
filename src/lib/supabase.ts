@@ -18,8 +18,12 @@ export function createSupabaseServiceClient() {
   );
 }
 
+export function getStoragePublicUrl(bucket: string, storagePath: string): string {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${storagePath}`;
+}
+
 // Helper: get public URL for a storage file
 export function getImageUrl(storagePath: string): string {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  return `${supabaseUrl}/storage/v1/object/public/property-images/${storagePath}`;
+  return getStoragePublicUrl("property-images", storagePath);
 }

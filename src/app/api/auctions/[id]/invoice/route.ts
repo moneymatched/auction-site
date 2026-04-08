@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { createSupabaseServiceClient } from "@/lib/supabase";
+import { createSupabaseServiceClient, getStoragePublicUrl } from "@/lib/supabase";
 import { getEffectiveAuctionStatus } from "@/lib/auction-status";
 
 const RESEND_URL = "https://api.resend.com/emails";
@@ -21,6 +21,8 @@ type AuctionSummary = {
   property: {
     title: string;
     apn: string;
+    buyer_premium: number;
+    doc_fee: number;
   } | null;
 };
 
@@ -40,6 +42,26 @@ type InvoiceRow = {
   paid_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type InvoiceBreakdown = {
+  hammer_price: number;
+  buyer_premium_rate: number;
+  buyer_premium_amount: number;
+  documentation_fee: number;
+  total_due: number;
+  earnest_money_deposit: number;
+};
+
+type InvoiceAttachment = {
+  id: string;
+  invoice_id: string;
+  file_name: string;
+  storage_path: string;
+  content_type: string | null;
+  size_bytes: number | null;
+  created_at: string;
+  public_url: string;
 };
 
 async function requireAuth() {
@@ -80,25 +102,72 @@ function buildEmailSubject(propertyTitle: string, invoiceNumber: string): string
   return `Invoice ${invoiceNumber} for ${propertyTitle}`;
 }
 
+function roundCurrency(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function formatCurrencyValue(value: number): string {
+  return `$${value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function calculateInvoiceBreakdown(params: {
+  winnerAmount: number;
+  buyerPremiumRate: number;
+  docFee: number;
+}): InvoiceBreakdown {
+  const safeWinnerAmount = Math.max(0, params.winnerAmount);
+  const safeBuyerPremiumRate = Math.max(0, params.buyerPremiumRate);
+  const safeDocFee = Math.max(0, params.docFee);
+  const buyerPremiumAmount = roundCurrency(
+    safeWinnerAmount * (safeBuyerPremiumRate / 100)
+  );
+  const totalDue = roundCurrency(safeWinnerAmount + buyerPremiumAmount + safeDocFee);
+  const earnestMoneyDeposit = roundCurrency(totalDue * 0.1);
+
+  return {
+    hammer_price: safeWinnerAmount,
+    buyer_premium_rate: safeBuyerPremiumRate,
+    buyer_premium_amount: buyerPremiumAmount,
+    documentation_fee: safeDocFee,
+    total_due: totalDue,
+    earnest_money_deposit: earnestMoneyDeposit,
+  };
+}
+
 function buildEmailText(params: {
   propertyTitle: string;
   invoiceNumber: string;
   winnerName: string;
-  amount: number;
+  breakdown: InvoiceBreakdown;
+  attachments: InvoiceAttachment[];
   dueDate: string | null;
   notes: string | null;
 }): string {
   const dueText = params.dueDate ? `Due Date: ${params.dueDate}` : "Due Date: Not specified";
   const notesText = params.notes?.trim() ? `\n\nNotes:\n${params.notes.trim()}` : "";
+  const docsText =
+    params.attachments.length > 0
+      ? `\n\nAttached Documents:\n${params.attachments.map((item) => `- ${item.file_name}: ${item.public_url}`).join("\n")}`
+      : "";
 
   return [
     `Hi ${params.winnerName},`,
     "",
     `Congratulations on winning the auction for ${params.propertyTitle}.`,
     `Invoice Number: ${params.invoiceNumber}`,
-    `Amount Due: $${params.amount.toLocaleString()}`,
+    "",
+    "Invoice Breakdown:",
+    `- Winning Bid (Hammer Price): ${formatCurrencyValue(params.breakdown.hammer_price)}`,
+    `- Buyer's Premium (${params.breakdown.buyer_premium_rate}%): ${formatCurrencyValue(params.breakdown.buyer_premium_amount)}`,
+    `- Documentation Fee: ${formatCurrencyValue(params.breakdown.documentation_fee)}`,
+    `- Total Amount Due: ${formatCurrencyValue(params.breakdown.total_due)}`,
+    `- Earnest Money Deposit (10%, due within 24 hours): ${formatCurrencyValue(params.breakdown.earnest_money_deposit)}`,
     dueText,
     notesText,
+    docsText,
     "",
     "Please reply to this email if you have any questions.",
   ].join("\n");
@@ -108,27 +177,47 @@ function buildEmailHtml(params: {
   propertyTitle: string;
   invoiceNumber: string;
   winnerName: string;
-  amount: number;
+  breakdown: InvoiceBreakdown;
+  attachments: InvoiceAttachment[];
   dueDate: string | null;
   notes: string | null;
 }): string {
   const safeName = escapeHtml(params.winnerName);
   const safeTitle = escapeHtml(params.propertyTitle);
   const safeNumber = escapeHtml(params.invoiceNumber);
-  const safeAmount = `$${params.amount.toLocaleString()}`;
   const safeDue = params.dueDate ? escapeHtml(params.dueDate) : "Not specified";
   const safeNotes = params.notes?.trim()
     ? `<p style="margin:0 0 8px;"><strong>Notes:</strong><br/>${escapeHtml(params.notes.trim()).replace(/\n/g, "<br/>")}</p>`
     : "";
+  const safeDocs =
+    params.attachments.length > 0
+      ? `<p style="margin:0 0 8px;"><strong>Supporting Documents:</strong></p>
+      <ul style="margin:0 0 12px 20px;padding:0;color:#1f2937;">
+        ${params.attachments
+          .map(
+            (item) =>
+              `<li><a href="${escapeHtml(item.public_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.file_name)}</a></li>`
+          )
+          .join("")}
+      </ul>`
+      : "";
 
   return `
     <div style="font-family:Arial,sans-serif;line-height:1.5;color:#1f2937;">
       <p>Hi ${safeName},</p>
       <p>Congratulations on winning the auction for <strong>${safeTitle}</strong>.</p>
       <p style="margin:0 0 8px;"><strong>Invoice Number:</strong> ${safeNumber}</p>
-      <p style="margin:0 0 8px;"><strong>Amount Due:</strong> ${safeAmount}</p>
+      <p style="margin:0 0 8px;"><strong>Invoice Breakdown:</strong></p>
+      <ul style="margin:0 0 12px 20px;padding:0;color:#1f2937;">
+        <li>Winning Bid (Hammer Price): ${formatCurrencyValue(params.breakdown.hammer_price)}</li>
+        <li>Buyer's Premium (${params.breakdown.buyer_premium_rate}%): ${formatCurrencyValue(params.breakdown.buyer_premium_amount)}</li>
+        <li>Documentation Fee: ${formatCurrencyValue(params.breakdown.documentation_fee)}</li>
+        <li><strong>Total Amount Due: ${formatCurrencyValue(params.breakdown.total_due)}</strong></li>
+        <li>Earnest Money Deposit (10%, due within 24 hours): ${formatCurrencyValue(params.breakdown.earnest_money_deposit)}</li>
+      </ul>
       <p style="margin:0 0 8px;"><strong>Due Date:</strong> ${safeDue}</p>
       ${safeNotes}
+      ${safeDocs}
       <p>Please reply to this email if you have any questions.</p>
     </div>
   `;
@@ -152,7 +241,7 @@ async function getAuctionAndWinner(auctionId: string): Promise<{
   const [{ data: auction }, { data: winner }] = await Promise.all([
     supabase
       .from("auctions")
-      .select("id, status, start_time, end_time, property:properties(title, apn)")
+      .select("id, status, start_time, end_time, property:properties(title, apn, buyer_premium, doc_fee)")
       .eq("id", auctionId)
       .maybeSingle(),
     supabase
@@ -176,7 +265,7 @@ async function upsertInvoice(params: {
   winner: WinnerBid;
   notes: string | null;
   dueDate: string | null;
-}): Promise<InvoiceRow | null> {
+}): Promise<{ invoice: InvoiceRow; breakdown: InvoiceBreakdown } | null> {
   const supabase = createSupabaseServiceClient();
 
   const { data: existing } = await supabase
@@ -186,6 +275,13 @@ async function upsertInvoice(params: {
     .maybeSingle();
 
   const apn = params.auction.property?.apn;
+  const buyerPremiumRate = Number(params.auction.property?.buyer_premium ?? 0);
+  const docFee = Number(params.auction.property?.doc_fee ?? 0);
+  const breakdown = calculateInvoiceBreakdown({
+    winnerAmount: Number(params.winner.amount),
+    buyerPremiumRate,
+    docFee,
+  });
   const invoiceNumber =
     buildInvoiceNumber(apn, params.auction.id, params.auction.end_time);
   const nowIso = new Date().toISOString();
@@ -197,7 +293,7 @@ async function upsertInvoice(params: {
     winner_name: params.winner.bidder_name || null,
     winner_email: params.winner.bidder_email,
     winner_phone: params.winner.bidder_phone || null,
-    amount: params.winner.amount,
+    amount: breakdown.total_due,
     notes: params.notes,
     due_date: params.dueDate,
     status: (existing as InvoiceRow | null)?.status ?? "draft",
@@ -212,7 +308,21 @@ async function upsertInvoice(params: {
     .single();
 
   if (error) return null;
-  return data as InvoiceRow;
+  return { invoice: data as InvoiceRow, breakdown };
+}
+
+async function getInvoiceAttachments(invoiceId: string): Promise<InvoiceAttachment[]> {
+  const supabase = createSupabaseServiceClient();
+  const { data } = await supabase
+    .from("invoice_attachments")
+    .select("*")
+    .eq("invoice_id", invoiceId)
+    .order("created_at", { ascending: true });
+
+  return ((data as Omit<InvoiceAttachment, "public_url">[] | null) ?? []).map((item) => ({
+    ...item,
+    public_url: getStoragePublicUrl("property-images", item.storage_path),
+  }));
 }
 
 export async function PATCH(
@@ -245,13 +355,17 @@ export async function PATCH(
 
   const notes = body.notes?.trim() ? body.notes.trim() : null;
   const dueDate = body.due_date?.trim() ? body.due_date : null;
-  const invoice = await upsertInvoice({ auction, winner, notes, dueDate });
+  const upsertResult = await upsertInvoice({ auction, winner, notes, dueDate });
 
-  if (!invoice) {
+  if (!upsertResult) {
     return NextResponse.json({ error: "Failed to save invoice" }, { status: 500 });
   }
-
-  return NextResponse.json({ invoice });
+  const attachments = await getInvoiceAttachments(upsertResult.invoice.id);
+  return NextResponse.json({
+    invoice: upsertResult.invoice,
+    breakdown: upsertResult.breakdown,
+    attachments,
+  });
 }
 
 export async function POST(
@@ -284,11 +398,14 @@ export async function POST(
 
   const notes = body.notes?.trim() ? body.notes.trim() : null;
   const dueDate = body.due_date?.trim() ? body.due_date : null;
-  const invoice = await upsertInvoice({ auction, winner, notes, dueDate });
+  const upsertResult = await upsertInvoice({ auction, winner, notes, dueDate });
 
-  if (!invoice) {
+  if (!upsertResult) {
     return NextResponse.json({ error: "Failed to create invoice" }, { status: 500 });
   }
+  const invoice = upsertResult.invoice;
+  const breakdown = upsertResult.breakdown;
+  const attachments = await getInvoiceAttachments(invoice.id);
 
   const propertyTitle = auction.property?.title ?? "Auction Property";
   const winnerName = winner.bidder_name?.trim() || "Bidder";
@@ -297,7 +414,8 @@ export async function POST(
     propertyTitle,
     invoiceNumber: invoice.invoice_number,
     winnerName,
-    amount: invoice.amount,
+    breakdown,
+    attachments,
     dueDate: invoice.due_date,
     notes: invoice.notes,
   });
@@ -305,7 +423,8 @@ export async function POST(
     propertyTitle,
     invoiceNumber: invoice.invoice_number,
     winnerName,
-    amount: invoice.amount,
+    breakdown,
+    attachments,
     dueDate: invoice.due_date,
     notes: invoice.notes,
   });
@@ -318,6 +437,8 @@ export async function POST(
       success: true,
       delivery: "mailto",
       invoice,
+      breakdown,
+      attachments,
       mailto_url: buildMailto({
         to: invoice.winner_email,
         subject,
@@ -377,6 +498,8 @@ export async function POST(
     success: true,
     delivery: "resend",
     invoice: sentInvoice,
+    breakdown,
+    attachments,
   });
 }
 
