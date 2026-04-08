@@ -155,7 +155,11 @@ export default function AdminAuctionRoom({
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setInvoiceError(data.error || "Failed to send invoice");
+      const detailedError =
+        typeof data.details === "string" && data.details.trim()
+          ? `${data.error || "Failed to send invoice"}: ${data.details}`
+          : data.error || "Failed to send invoice";
+      setInvoiceError(detailedError);
       setInvoiceSending(false);
       return;
     }

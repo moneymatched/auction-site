@@ -26,7 +26,7 @@ NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...
 
 # Optional (for direct invoice emails from app)
 RESEND_API_KEY=re_...
-INVOICE_FROM_EMAIL=invoice@acrebid.com
+INVOICE_FROM_EMAIL=info@acrebid.com
 ```
 
 ## 3. Get a Google Maps API Key

@@ -311,7 +311,7 @@ export async function POST(
   });
 
   const resendApiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.INVOICE_FROM_EMAIL || "invoice@acrebid.com";
+  const fromEmail = process.env.INVOICE_FROM_EMAIL || "info@acrebid.com";
 
   if (!resendApiKey || !fromEmail) {
     return NextResponse.json({
