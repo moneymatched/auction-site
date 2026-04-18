@@ -26,6 +26,7 @@ import {
   ExternalLink,
   DollarSign,
 } from "lucide-react";
+import RegisterModal from "@/components/RegisterModal";
 
 const BIDDER_KEY = "auction_bidder";
 
@@ -334,6 +335,7 @@ function LoginForm({ onLoggedIn }: { onLoggedIn: (bidder: Bidder) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -432,13 +434,23 @@ function LoginForm({ onLoggedIn }: { onLoggedIn: (bidder: Bidder) => void }) {
 
           <p className="text-xs text-stone-400 text-center">
             Don&apos;t have an account?{" "}
-            <Link href="/auctions" className="underline hover:text-stone-600">
-              Browse auctions
-            </Link>{" "}
-            and register when placing your first bid.
+            <button
+              type="button"
+              onClick={() => setShowRegister(true)}
+              className="underline hover:text-stone-600"
+            >
+              Register now
+            </button>
           </p>
         </form>
       </div>
+
+      {showRegister && (
+        <RegisterModal
+          onComplete={onLoggedIn}
+          onClose={() => setShowRegister(false)}
+        />
+      )}
     </div>
   );
 }

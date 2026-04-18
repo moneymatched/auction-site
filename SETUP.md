@@ -5,10 +5,9 @@
 1. Go to [supabase.com](https://supabase.com) → New Project
 2. Copy your **Project URL** and **anon key** from Settings → API
 3. Also copy the **service_role key** (keep this secret)
-4. Run migrations in SQL Editor:
-   - `supabase/migrations/001_initial_schema.sql`
-   - `supabase/migrations/002_bidders.sql`
-   - `supabase/migrations/003_invoices.sql`
+4. Apply database migrations (required for registration, proxy bids, invoices, etc.):
+   - **Recommended:** [Supabase CLI](https://supabase.com/docs/guides/cli) — `supabase link` then `supabase db push`
+   - **Or** run every file under `supabase/migrations/` in numeric order (`001_…` through `011_…`) in the SQL Editor
 5. Create a Storage bucket named `property-images` (Storage → New bucket → Public: YES)
 6. Create your admin user: Authentication → Users → Add User (use email/password)
 
