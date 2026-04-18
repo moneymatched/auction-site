@@ -7,7 +7,7 @@ import { X, DollarSign, Loader2, Mail, UserCheck, UserPlus, Eye, EyeOff } from "
 
 const BIDDER_KEY = "auction_bidder";
 
-function loadStoredBidder(): Bidder | null {
+export function loadStoredBidder(): Bidder | null {
   try {
     const raw = localStorage.getItem(BIDDER_KEY);
     return raw ? (JSON.parse(raw) as Bidder) : null;
@@ -16,7 +16,7 @@ function loadStoredBidder(): Bidder | null {
   }
 }
 
-function storeBidder(bidder: Bidder) {
+export function storeBidder(bidder: Bidder) {
   localStorage.setItem(BIDDER_KEY, JSON.stringify(bidder));
 }
 
@@ -35,7 +35,7 @@ interface RegistrationStepProps {
   onClose: () => void;
 }
 
-function RegistrationStep({ onRegistered, onClose }: RegistrationStepProps) {
+export function RegistrationStep({ onRegistered, onClose }: RegistrationStepProps) {
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
@@ -287,7 +287,7 @@ interface VerifyEmailStepProps {
   onClose: () => void;
 }
 
-function VerifyEmailStep({ bidder, onVerified, onClose }: VerifyEmailStepProps) {
+export function VerifyEmailStep({ bidder, onVerified, onClose }: VerifyEmailStepProps) {
   const [loading, setLoading] = useState<"resend" | "refresh" | null>(null);
   const [error, setError] = useState("");
 
