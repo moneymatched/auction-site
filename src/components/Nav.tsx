@@ -45,7 +45,7 @@ export default function Nav() {
                 isHome ? "text-white" : "text-stone-900"
               }`}
             >
-              Going, Going, Gobbi
+              Acrebid
             </span>
           </Link>
 
