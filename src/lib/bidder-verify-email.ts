@@ -77,7 +77,7 @@ ${verifyUrl}
 
 If you didn't register, you can ignore this message.
 
-— Going Going Gobbi`;
+— Acrebid`;
 
   const htmlBody = `<p>Hi ${escapeHtml(name)},</p>
 <p>Confirm your email to place bids:</p>

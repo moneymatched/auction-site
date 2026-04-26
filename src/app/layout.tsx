@@ -10,7 +10,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Going Going Gobbi | Land Auctions",
+  title: "Acrebid | Land Auctions",
   description: "Bid on land properties. Live online auctions.",
 };
 
