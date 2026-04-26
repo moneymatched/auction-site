@@ -9,7 +9,11 @@
    - **Recommended:** [Supabase CLI](https://supabase.com/docs/guides/cli) — `supabase link` then `supabase db push`
    - **Or** run every file under `supabase/migrations/` in numeric order (`001_…` through `011_…`) in the SQL Editor
 5. Create a Storage bucket named `property-images` (Storage → New bucket → Public: YES)
-6. Create your admin user: Authentication → Users → Add User (use email/password)
+6. Create admin users: Authentication → Users → Add User (email + password) for each person who should manage the site. They all sign in at `/admin/login`.
+
+7. **Restrict who can open the admin area** (recommended): set `ADMIN_EMAILS` in `.env.local` to a comma-separated list of admin emails (must match the Supabase user emails exactly, case does not matter). Example: `ADMIN_EMAILS=you@example.com,colleague@example.com`. If you leave this unset, any Supabase Auth user can still use `/admin` after signing in.
+
+8. **Admin “Forgot password?”** uses Supabase email recovery. In the Supabase dashboard go to **Authentication → URL configuration** and add these to **Redirect URLs** (use your real production domain on Vercel): `http://localhost:3000/auth/admin-reset-password` and `https://YOUR-PROJECT.vercel.app/auth/admin-reset-password` (or your custom domain). Without this, the link in the reset email may not open the site correctly.
 
 **Note:** Admin operations (properties, photos, auctions) use API routes with the service role, so you don't need to configure RLS policies for those tables.
 
@@ -22,6 +26,9 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...
+
+# Recommended: only these emails may use /admin after Supabase sign-in
+ADMIN_EMAILS=admin@yourdomain.com
 
 # Optional (for direct invoice emails from app)
 RESEND_API_KEY=re_...
