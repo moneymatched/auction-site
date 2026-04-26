@@ -87,7 +87,7 @@ function AdminLoginForm() {
             <Lock size={20} className="text-white" />
           </div>
           <h1 className="text-2xl font-semibold text-stone-900">Admin Login</h1>
-          <p className="text-stone-500 text-sm mt-1">Going Going Gobbi</p>
+          <p className="text-stone-500 text-sm mt-1">Acrebid</p>
         </div>
 
         <div className="card p-6">

@@ -1,4 +1,4 @@
-# Going Going Gobbi
+# Acrebid
 
 A modern, real-time land auction platform built with Next.js and Supabase. Features frictionless bidding, anti-sniping protection, proxy bidding, and interactive map views.
 

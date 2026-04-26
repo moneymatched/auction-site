@@ -137,7 +137,7 @@ export default async function HomePage() {
       {/* Footer */}
       <footer className="border-t border-stone-200 bg-white mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="text-sm font-semibold text-stone-900">Going Going Gobbi</span>
+          <span className="text-sm font-semibold text-stone-900">Acrebid</span>
           <p className="text-xs text-stone-400">
             Payments handled offline. All sales subject to seller approval.
           </p>

@@ -1,4 +1,4 @@
-# Going Going Gobbi — Setup Guide
+# Acrebid — Setup Guide
 
 ## 1. Create a Supabase Project
 

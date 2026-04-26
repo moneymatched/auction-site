@@ -26,7 +26,7 @@ export default function AdminNav() {
     <aside className="w-56 shrink-0 bg-white border-r border-stone-200 flex flex-col min-h-screen sticky top-0">
       <div className="p-5 border-b border-stone-200">
         <p className="text-xs text-stone-400 uppercase tracking-wider mb-1">Admin</p>
-        <p className="font-semibold text-stone-900 text-sm">Going Going Gobbi</p>
+        <p className="font-semibold text-stone-900 text-sm">Acrebid</p>
       </div>
 
       <nav className="flex-1 p-3 space-y-0.5">
